@@ -3,3 +3,4 @@ amazon_data/
 data_pipeline/file_mgr.ipynb
 **.DS_Store
 .DS_Store
+.env
