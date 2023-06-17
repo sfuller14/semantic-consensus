@@ -324,8 +324,8 @@ if st.session_state.page == 'search' and (st.session_state.search_button_clicked
             filtered_products_df['rank'] = filtered_products_df['asin'].map(dict(rank_dict))
             filtered_products_df.sort_values('rank', inplace=True)            
 
-        st.session_state.filtered_products_df = filtered_products_df            
-            
+        st.session_state.filtered_products_df = filtered_products_df
+        
     update_query_and_sort_results()  # This line is added
     view_products(st.session_state.filtered_products_df)
 

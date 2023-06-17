@@ -1,5 +1,4 @@
 import streamlit as st
-st.runtime.legacy_caching.clear_cache()
 import pandas as pd
 pd.set_option('display.max_columns', None)
 import numpy as np
@@ -9,35 +8,39 @@ warnings.filterwarnings('ignore')
 import os
 import tiktoken
 import sqlite3
-conn = sqlite3.connect('ecommerce.db')
-client = conn.cursor()
-
 import pinecone
 import openai
-from openai.embeddings_utils import cosine_similarity
-
 from dotenv import dotenv_values
 config = dotenv_values(".env")
 
-
 openai.api_key = config["OPENAI_API_KEY"]
 
-# Set your API keys and environment
-PINECONE_API_KEY=config['PINECONE_API_KEY']
-PINECONE_ENV=config['PINECONE_ENVIRONMENT']
-INDEX_NAME = "ecommerce"
+# region load_dbs
+@st.cache_resource
+def load_sql():
+    conn = sqlite3.connect('ecommerce.db', check_same_thread=False)
+    client = conn.cursor()
+    client.execute('PRAGMA journal_mode=WAL')
+    return client
 
-# Initialize OpenAI and Pinecone
-pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-pinecone_index = pinecone.Index(INDEX_NAME)
+client = load_sql()
 
-# Define a function to query Pinecone and generate a response using OpenAI
+@st.cache_resource
+def load_pinecone():
+    pinecone.init(api_key=config['PINECONE_API_KEY'], environment=config['PINECONE_ENVIRONMENT'])
+    return pinecone.Index("ecommerce")
+pinecone_index = load_pinecone()
+# endregion load_dbs
+
+# CHAT FUNCTION
 def generate_response(user_input, asin):
-    # Embed the query using OpenAI
+    '''User query --> Embedding --> Pinecone --> Combine top_k docs with prompt --> OpenAI --> Response'''
+        
+    # User query --> Embedding
     res = openai.Embedding.create(input=[user_input], engine="text-embedding-ada-002")
     query_embedding = res['data'][0]['embedding']
 
-    # Query Pinecone for similar documents
+    # --> Pinecone --> Similar docs
     top_k = 8
     results = pinecone_index.query(query_embedding, 
                                     filter={
@@ -48,7 +51,7 @@ def generate_response(user_input, asin):
                                     include_metadata=True)
 
  
-    # Combine the query and the retrieved documents as context
+    # --> Combine prompt with similar docs
     context = f"**USER QUESTION:**\n{user_input}\n\n**REVIEWS:**\n"
 
     for doc in results['matches']:#[0]['metadata']:
@@ -70,7 +73,7 @@ def generate_response(user_input, asin):
     ]
 
 
-    # Generate a response using OpenAI
+    # --> OpenAI
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=messages,
@@ -79,8 +82,11 @@ def generate_response(user_input, asin):
         stop=None,
         temperature=0,
     )
+    
+    # --> Response
     return response.choices[0].message.content.strip()
 
+# PRODUCT PAGE
 def view(product_id, df):
     tab1, tab2 = st.tabs(['Product', 'Chat with Reviews'])
     
@@ -113,7 +119,7 @@ def view(product_id, df):
                                             namespace='reviews', 
                                             include_metadata=True)
             
-            print(results)
+            # print(results)
             date = results['matches'][0]['metadata']['date']
             # n_tokens = results['matches'][0]['metadata']['n_tokens']
             numPeopleFoundHelpful = results['matches'][0]['metadata']['numPeopleFoundHelpful']
@@ -131,15 +137,13 @@ def view(product_id, df):
 
         if st.button('Back'):
             del st.session_state['product']
-            st.runtime.legacy_caching.clear_cache()
+            # st.runtime.legacy_caching.clear_cache()
+            st.session_state.popped=False
             st.session_state.page = 'search'
             st.experimental_rerun()
             
     with tab2:
-
-
-
-        # Streamlit app
+        
         st.title("Reviews Chat")
         user_input = st.text_input("Ask a question:")
         if user_input:
@@ -148,195 +152,218 @@ def view(product_id, df):
                 chatbot_response = generate_response(user_input, asin)
             st.write(chatbot_response)
         
-def set_viewed_product(product, k=7):
-    '''Set viewed product'''
+# SINGLE PRODUCT PAGE
+# st.cache_data(experimental_allow_widgets=True)
+def set_viewed_product(product):#, df):
+    '''This is called when a user clicks on a product to view it'''
     st.session_state.product = product.id
+    # view(product.id, df)
     st.session_state.page = 'view'
     st.experimental_rerun()
 
+# HOME PAGE (recommended/ranked product list based on sidebar selections and user query)
+# @st.cache_data(experimental_allow_widgets=True)
 def view_products(df, products_per_row=7):
-    '''View products'''
-    num_rows = min(8, int(np.ceil(len(df) / products_per_row)))
-    for i in range(num_rows):
-        start = i * products_per_row
-        end = start + products_per_row
-        products = df.iloc[start:end]
-        columns = st.columns(products_per_row)
-        for product, column in zip(products.iterrows(), columns):# product is a tuple of (index, row)
-            container = column.container()
-            button_key = f"view_{product[1]['id']}"
-            if container.button('View', key=button_key):
-                set_viewed_product(product=product[1], k=products_per_row)
-            container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
+    '''Home page -- prior to Search button press, this just shows most popular products'''
+    if 'popped' not in st.session_state or st.session_state.popped==False:
+        num_rows = min(8, int(np.ceil(len(df) / products_per_row)))
+        for i in range(num_rows):
+            start = i * products_per_row
+            end = start + products_per_row
+            products = df.iloc[start:end]
+            columns = st.columns(products_per_row)
+            for product, column in zip(products.iterrows(), columns):# product is a tuple of (index, row)
+                container = column.container()
+                button_key = f"view_{product[1]['id']}"
+                if container.button('View', key=button_key):
+                    set_viewed_product(product=product[1])#, df=df)
+                container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
+        st.session_state.popped=True
 
+# EMBED USER INPUT (search query or chatbot question)
 def get_embedding(text, model="text-embedding-ada-002", max_tokens=8000):
-    
+    '''Custom implementation (rather than openai.embeddings_utils) to avoid potential context window overflow'''
     text = text.replace("\n", " ")
     encoding = tiktoken.encoding_for_model(model)
     text = encoding.decode(encoding.encode(text)[:max_tokens]) if len(encoding.encode(text)) >= max_tokens else text
 
     return openai.Embedding.create(input=[text], model=model)['data'][0]['embedding']
 
-def recommend_products(df, n=1000):
-    recommended = df.sort_values('similarities', ascending=False).head(n*2)
-    recommended = recommended[~recommended['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')]
-    return recommended.head(n)
-
-def get_most_similar_review(query_embedding, df, n=1):
-    df['similarities'] = df['embedding'].apply(lambda x: cosine_similarity(x, query_embedding))
-    return df.sort_values('similarities', ascending=False).head(n)
-
-def update_query_and_sort_results(query_input):
-    if query_input:
-        st.session_state.query_embedding = get_embedding(query_input, model='text-embedding-ada-002')
-        st.session_state.query_for_sorting = query_input
+def update_query_and_sort_results():
+    if 'query_for_sorting' in st.session_state and st.session_state.query_for_sorting != '':
+        st.session_state.query_embedding = get_embedding(st.session_state.query_for_sorting, model='text-embedding-ada-002')
     else:
         if 'query_embedding' in st.session_state:
             del st.session_state.query_embedding
     
-    if 'query_embedding' in st.session_state and 'filtered_products_df' in st.session_state:        
+    if 'query_embedding' in st.session_state and st.session_state.query_embedding \
+        and 'filtered_asins' in st.session_state and st.session_state.filtered_asins:# \
+        # and 'filtered_products_df' in st.session_state and not st.session_state.filtered_products_df.empty:
+        
+        # get most similar **REVIEWS**
         results = pinecone_index.query(st.session_state.query_embedding, 
                                         filter={
                                             "asin": {"$in": st.session_state.filtered_asins},
                                         },
                                         top_k=1000,
-                                        namespace='products', 
+                                        namespace='reviews', 
                                         include_metadata=True)
         
         scores = [r['score'] for r in results['_data_store']['matches']]
-        filtered_products_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
-        filtered_products_df['similarities'] = scores
-        filtered_products_df.reset_index(inplace=True)
-        filtered_products_df.rename(columns={'index': 'id'}, inplace=True)
-        st.session_state.filtered_products_df = filtered_products_df
-        st.session_state.filtered_products_df = recommend_products(st.session_state.filtered_products_df)
-        st.session_state.filtered_products_df.sort_values('similarities', ascending=False, inplace=True)
+        filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
+        filtered_reviews_df['similarities'] = scores
         
-# Prep tabular filter data
-distinct_categories = client.execute('''SELECT DISTINCT category FROM products''').fetchall()
-distinct_brands = client.execute('''SELECT DISTINCT brand FROM products''').fetchall()
-distinct_operating_systems = client.execute('''SELECT DISTINCT operating_system FROM products''').fetchall()
-min_max_price_tuple = client.execute('''SELECT min(price), max(price) FROM products''').fetchone()
+        n = 56
+        filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
+        # drop duplicates in filtered_reviews_df (on asin), keep first
+        filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
+        filtered_reviews_df = filtered_reviews_df.head(n*6)
+        rank_dict = dict(zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1)))
 
-# Flatten the list of tuples
-distinct_categories = [item[0] for item in distinct_categories]
-distinct_brands = [item[0] for item in distinct_brands]
-distinct_operating_systems = [item[0] for item in distinct_operating_systems]
+        filtered_asins = filtered_reviews_df.asin.tolist()
+        st.session_state.filtered_asins = filtered_asins
+        
+        # convert from reviews to **PRODUCTS**
+        query = f"SELECT * FROM products WHERE asin IN {tuple(filtered_asins)}"
+        result_set = client.execute(query).fetchall()
+        
+        columns = [column[0] for column in client.description]
+        filtered_products_df = pd.DataFrame(result_set, columns=columns)
+        
+        filtered_products_df['similarities'] = filtered_products_df['asin'].map(dict(rank_dict))
+        # filtered_products_df.sort_values('similarities', inplace=True)      
+        
+        # first sort 
+        filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n*2) # return more since some will be removed
+        filtered_products_df = filtered_products_df[~filtered_products_df['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')] # don't recommend similar products
+        filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n) # return desired amount
+        # print(filtered_products_df.head())
+        # print(filtered_products_df.columns.tolist())
+        # filtered_products_df.reset_index(inplace=True, drop=True)
+        # filtered_products_df.reset_index(inplace=True, drop=False)
+        # filtered_products_df.rename(columns={'index': 'id'}, inplace=True) # get new ordering
+        # cast to string?
+        # filtered_products_df['id'] = filtered_products_df['id'].astype(str)
+        
+        st.session_state.filtered_products_df = filtered_products_df
 
-category_multi_select = st.sidebar.multiselect('Product Category:', distinct_categories, default=distinct_categories)
-brand_multi_select = st.sidebar.multiselect('Computer Brands:', distinct_brands, default=distinct_brands)
-os_multi_select = st.sidebar.multiselect('Operating Systems:', distinct_operating_systems, default=distinct_operating_systems)
-
-price_slider = st.sidebar.slider(
-    'Select a price range',
-    min_value=0.0, 
-    max_value=6000.00,
-    value=(min_max_price_tuple[0], min_max_price_tuple[1])
-)
-
-rating_slider = st.sidebar.slider(
-    'Select range for ratings (1-5)',
-    min_value=1, 
-    max_value=5,
-    value=(1,5)
-)
-
-# st.ss.INIT: page
-if 'page' not in st.session_state:
-    st.session_state.page = 'search'
-    
-query_input = st.sidebar.text_input("Enter your query: (optional)", key='name')
-st.sidebar.markdown("_Please press Enter after typing to submit the query._", unsafe_allow_html=True)
-
-if st.session_state.page == 'search' and (st.sidebar.button('Search') or ('product' not in st.session_state)):
+def recsys():
     with st.spinner('Searching...'):
         time.sleep(1)
         
-        # Get user selections for tabular filters
-        category_selection = str(tuple(category_multi_select)) if category_multi_select else None
-        brand_selection = str(tuple(brand_multi_select)) if brand_multi_select else None
-        os_selection = str(tuple(os_multi_select)) if os_multi_select else None
-        # Remove trailing comma for single-item tuples
-        if category_selection and len(category_multi_select) == 1:
-            category_selection = category_selection.replace(",", "")
-        if brand_selection and len(brand_multi_select) == 1:
-            brand_selection = brand_selection.replace(",", "")
-        if os_selection and len(os_multi_select) == 1:
-            os_selection = os_selection.replace(",", "")
+        if 'category_multi_select' in st.session_state and st.session_state.category_multi_select:
+            # Get user selections for tabular filters
+            category_selection = str(tuple(st.session_state.category_multi_select)) if st.session_state.category_multi_select else None
+            brand_selection = str(tuple(st.session_state.brand_multi_select)) if st.session_state.brand_multi_select else None
+            os_selection = str(tuple(st.session_state.os_multi_select)) if st.session_state.os_multi_select else None
+            # Remove trailing comma for single-item tuples
+            if category_selection and len(st.session_state.category_multi_select) == 1:
+                category_selection = category_selection.replace(",", "")
+            if brand_selection and len(st.session_state.brand_multi_select) == 1:
+                brand_selection = brand_selection.replace(",", "")
+            if os_selection and len(st.session_state.os_multi_select) == 1:
+                os_selection = os_selection.replace(",", "")
 
-        # Build tabular query string dynamically
-        conditions = []
-        if category_selection is not None:
-            conditions.append(f'category IN {category_selection}')
-        if brand_selection is not None:
-            conditions.append(f'brand IN {brand_selection}')
-        if os_selection is not None:
-            conditions.append(f'operating_system IN {os_selection}')
-        conditions.append(f'price >= {price_slider[0]}')
-        conditions.append(f'price <= {price_slider[1]}')
-        conditions.append(f'rating >= {rating_slider[0]}')
-        conditions.append(f'rating <= {rating_slider[1]}')
+            # Build tabular query string dynamically
+            conditions = []
+            if category_selection is not None:
+                conditions.append(f'category IN {category_selection}')
+            if brand_selection is not None:
+                conditions.append(f'brand IN {brand_selection}')
+            if os_selection is not None:
+                conditions.append(f'operating_system IN {os_selection}')
+            conditions.append(f'price >= {st.session_state.price_slider[0]}')
+            conditions.append(f'price <= {st.session_state.price_slider[1]}')
+            conditions.append(f'rating >= {st.session_state.rating_slider[0]}')
+            conditions.append(f'rating <= {st.session_state.rating_slider[1]}')
 
-        query = f'SELECT * FROM products WHERE {" AND ".join(conditions)}'
+            query = f'SELECT * FROM products WHERE {" AND ".join(conditions)}'
+        else:
+            query = f'SELECT * FROM products'
         
         result_set = client.execute(query).fetchall()
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
+        st.session_state.filtered_products_df = filtered_products_df
+
+        # st.session_state.filtered_products_df = filtered_products_df
+        
         filtered_asins = filtered_products_df.asin.tolist()
         # st.ss.INIT: filtered_asins
         st.session_state.filtered_asins = filtered_asins
         
-        # filtered_products_df['id'] = filtered_products_df['id'].astype(str)
+        update_query_and_sort_results()
+        view_products(st.session_state.filtered_products_df)
         
-        if 'query_for_sorting' in st.session_state:
-            query_embedding = get_embedding(st.session_state.query_for_sorting, model='text-embedding-ada-002')
-            
-            st.session_state.query_embedding = query_embedding
+# Prep tabular filter data
+@st.cache_data
+def get_all_tabular_categories(_client):
+    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products''').fetchall()
+    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products''').fetchall()
+    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products''').fetchall()
+    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products''').fetchone()
+    
+    # Flatten the list of tuples
+    distinct_categories = [item[0] for item in distinct_categories]
+    distinct_brands = [item[0] for item in distinct_brands]
+    distinct_operating_systems = [item[0] for item in distinct_operating_systems]
+    
+    st.session_state.distinct_categories = distinct_categories
+    st.session_state.distinct_brands = distinct_brands
+    st.session_state.distinct_operating_systems = distinct_operating_systems
+    st.session_state.min_max_price_tuple = min_max_price_tuple
+    
+    return distinct_categories, distinct_brands, distinct_operating_systems, min_max_price_tuple
 
-            results = pinecone_index.query(query_embedding, 
-                                            filter={
-                                                "asin": {"$in": st.session_state.filtered_asins},
-                                            },
-                                            top_k=1000,
-                                            namespace='reviews', 
-                                            include_metadata=True)
-            
-            scores = [r['score'] for r in results['_data_store']['matches']]
-            filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
-            filtered_reviews_df['similarities'] = scores
-            filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
-            # drop duplicates in filtered_reviews_df (on asin), keep first
-            filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
-            filtered_reviews_df = filtered_reviews_df.head(50)
-            rank_dict = zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1))
+if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
+    get_all_tabular_categories(client)
 
-            filtered_asins = filtered_reviews_df.asin.tolist()
-            st.session_state.filtered_asins = filtered_asins
-            
-            query = f"SELECT * FROM products WHERE asin IN {tuple(filtered_asins)}"
-            print(query)
-            result_set = client.execute(query).fetchall()
-            
-            columns = [column[0] for column in client.description]
-            filtered_products_df = pd.DataFrame(result_set, columns=columns)
-            
-            filtered_products_df['rank'] = filtered_products_df['asin'].map(dict(rank_dict))
-            filtered_products_df.sort_values('rank', inplace=True)            
+# def home_sidebar():
+with st.sidebar.form(key='filter_form'):
 
-        st.session_state.filtered_products_df = filtered_products_df
+    if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
+        st.text_input("Enter your query: (optional)", key='query_for_sorting')
+    else:
+        st.text_input("Enter your query: (optional)", key='query_for_sorting', value=st.session_state.query_for_sorting)
+    # st.markdown("_Please press Enter after typing to submit the query._", unsafe_allow_html=True)
 
+    if ('category_multi_selection' not in st.session_state) or (not st.session_state.category_multi_selection):
+        category_multi_select = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.distinct_categories, key="category_multi_selection")
+        brand_multi_select = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection")
+        os_multi_select = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.distinct_operating_systems, key="os_multi_selection")
+    else:
+        category_multi_select = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.category_multi_selection, key="category_multi_selection")
+        brand_multi_select = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.brand_multi_selection, key="brand_multi_selection")
+        os_multi_select = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.os_multi_selection, key="os_multi_selection")
+        
 
+    price_slider = st.slider(
+        'Select a price range',
+        min_value=0.0, 
+        max_value=6000.00,
+        value=(st.session_state.min_max_price_tuple[0], st.session_state.min_max_price_tuple[1]),
+        key="price_slider"
+    )
 
-    if 'product' in st.session_state:
-        if st.session_state['product'] in filtered_products_df['id'].values:
-            view(st.session_state['product'], filtered_products_df)
-            
-            
-    view_products(st.session_state.filtered_products_df)
-    update_query_and_sort_results(query_input)  # This line is added
+    rating_slider = st.slider(
+        'Select range for ratings (1-5)',
+        min_value=1, 
+        max_value=5,
+        value=(1,5),
+        key="rating_slider"
+    )
+    
+    submit = st.form_submit_button(label='Apply Filters', on_click=recsys)
+
+# st.ss.INIT: page
+if 'page' not in st.session_state:
+    st.session_state.page = 'search'
+
+if st.session_state.page == 'search' and ('product' not in st.session_state):
+    st.session_state.popped=False
+    # home_sidebar()
+    recsys()
 
 elif st.session_state.page == 'view':
     if 'product' in st.session_state and st.session_state['product'] in st.session_state.filtered_products_df['id'].values:
         view(st.session_state['product'], st.session_state.filtered_products_df)
-
-client.close()
