@@ -23,13 +23,11 @@ def load_sql():
     client.execute('PRAGMA journal_mode=WAL')
     return client
 
-client = load_sql()
 
 @st.cache_resource
 def load_pinecone():
     pinecone.init(api_key=config['PINECONE_API_KEY'], environment=config['PINECONE_ENVIRONMENT'])
     return pinecone.Index("ecommerce")
-pinecone_index = load_pinecone()
 # endregion load_dbs
 
 # CHAT FUNCTION
@@ -162,7 +160,6 @@ def set_viewed_product(product):#, df):
     st.experimental_rerun()
 
 # HOME PAGE (recommended/ranked product list based on sidebar selections and user query)
-# @st.cache_data(experimental_allow_widgets=True)
 def view_products(df, products_per_row=7):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'popped' not in st.session_state or st.session_state.popped==False:
@@ -314,6 +311,9 @@ def get_all_tabular_categories(_client):
     st.session_state.min_max_price_tuple = min_max_price_tuple
     
     return distinct_categories, distinct_brands, distinct_operating_systems, min_max_price_tuple
+
+client = load_sql()
+pinecone_index = load_pinecone()
 
 if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
     get_all_tabular_categories(client)

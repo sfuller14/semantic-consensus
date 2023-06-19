@@ -6,6 +6,8 @@ data_pipeline/file_mgr.ipynb
 **.DS_Store
 .DS_Store
 .env
+assets_resized/
 assets_resized/*
 .vscode/
-deb.ipynb
+.vscode
+scratch.ipynb
