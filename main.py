@@ -166,7 +166,7 @@ def view_products(df, products_per_row=7):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'product' not in st.session_state and st.session_state.page == 'search':
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
-            num_rows = min(8, int(np.ceil(len(df) / products_per_row)))
+            num_rows = min(10, int(np.ceil(len(df) / products_per_row)))
             for i in range(num_rows):
                 start = i * products_per_row
                 end = start + products_per_row
@@ -203,6 +203,8 @@ def update_query_and_sort_results():
         results = pinecone_index.query(st.session_state.query_embedding, 
                                         filter={
                                             "asin": {"$in": st.session_state.filtered_asins},
+                                            "n_tokens": {"$gt": 10},
+                                            "rating": {"$gt": 3}
                                         },
                                         top_k=1000,
                                         namespace='reviews', 
@@ -212,7 +214,7 @@ def update_query_and_sort_results():
         filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
         filtered_reviews_df['similarities'] = scores
         
-        n = 70
+        n = 77
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
         # drop duplicates in filtered_reviews_df (on asin), keep first
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
@@ -293,7 +295,7 @@ def recsys():
 @st.cache_data
 def get_all_tabular_categories(_client):
     distinct_categories = _client.execute('''SELECT DISTINCT category FROM products''').fetchall()
-    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products''').fetchall()
+    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products ORDER BY brand''').fetchall()
     distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products''').fetchall()
     min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products''').fetchone()
     
