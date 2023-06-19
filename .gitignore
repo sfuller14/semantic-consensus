@@ -1,7 +1,11 @@
 ecommerce.db
+ecommerce.db-shm
+ecommerce.db-wal
 amazon_data/
 data_pipeline/file_mgr.ipynb
 **.DS_Store
 .DS_Store
 .env
 assets_resized/*
+.vscode/
+deb.ipynb
