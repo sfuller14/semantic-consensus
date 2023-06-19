@@ -31,7 +31,7 @@ def load_pinecone():
 # endregion load_dbs
 
 # CHAT FUNCTION
-def generate_response(user_input, asin):
+def stream_response(user_input, asin):
     '''User query --> Embedding --> Pinecone --> Combine top_k docs with prompt --> OpenAI --> Response'''
         
     # User query --> Embedding
@@ -39,10 +39,11 @@ def generate_response(user_input, asin):
     query_embedding = res['data'][0]['embedding']
 
     # --> Pinecone --> Similar docs
-    top_k = 8
+    top_k = 20
     results = pinecone_index.query(query_embedding, 
                                     filter={
                                         "asin": {"$eq": asin},
+                                        "n_tokens": {"$gt": 10}
                                     },
                                     top_k=top_k,
                                     namespace='reviews', 
@@ -60,8 +61,8 @@ def generate_response(user_input, asin):
     Determine if the user's question is specific to the selected product or a general question about computers (or anything else). If general, ignore the reviews and provide a general response. If product-specific, perform the following steps:
     
     1) Read the following reviews and determine which portions of the reviews are relevant to the user's question
-    2) In a bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (url of review)
-    3) Finally, provide a complete but terse response to the user's question based on the reviews
+    2) In a bulleted list, provide 0-7 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
+    3) Finally, provide a response to the user's question based on the reviews
 
     {context}
     """
@@ -72,17 +73,22 @@ def generate_response(user_input, asin):
 
 
     # --> OpenAI
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=messages,
-        max_tokens=1000,
-        n=1,
-        stop=None,
-        temperature=0,
-    )
+    # response = openai.ChatCompletion.create(
+    #     model="gpt-4",
+    #     messages=messages,
+    #     max_tokens=1000,
+    #     n=1,
+    #     stop=None,
+    #     temperature=0,
+    # )
     
     # --> Response
-    return response.choices[0].message.content.strip()
+    res_box = st.empty()
+    response = []
+    for resp in openai.ChatCompletion.create(model="gpt-4", messages=messages, temperature=0, stream=True ):
+        response.append(resp['choices'][0]['delta'].get('content', ''))
+        result = "".join(response).strip()
+        res_box.markdown(f'*{result}*') 
 
 # PRODUCT PAGE
 def view(product_id, df):
@@ -115,6 +121,7 @@ def view(product_id, df):
                 results = pinecone_index.query(st.session_state.query_embedding, 
                                                 filter={
                                                     "asin": {"$eq": asin},
+                                                    "n_tokens": {"$gt": 10}
                                                 },
                                                 top_k=1,
                                                 namespace='reviews', 
@@ -139,20 +146,23 @@ def view(product_id, df):
                 st.experimental_rerun()
                 
         with tab2:
-            
-            st.title("Reviews Chat")
-            user_input = st.text_input("Ask a question:")
-            if user_input:
-                asin = df.loc[df.id == product_id, 'asin'].item()
-                with st.spinner("Generating response..."):
-                    chatbot_response = generate_response(user_input, asin)
-                st.write(chatbot_response)
 
             if st.button('Back', key='back_tab2'):
                 del st.session_state['product']
                 st.session_state.popped=True
                 st.session_state.page = 'search'
                 st.experimental_rerun()
+            
+            st.title("Reviews Chat")
+            user_input = st.text_input("Ask a question:")
+            if user_input:
+                asin = df.loc[df.id == product_id, 'asin'].item()
+                # with st.spinner("Generating response..."):
+                #     chatbot_response = generate_response(user_input, asin)
+                # st.write(chatbot_response)
+                
+                stream_response(user_input, asin)
+
         
 # SINGLE PRODUCT PAGE
 def set_viewed_product(product):
@@ -166,6 +176,7 @@ def view_products(df, products_per_row=7):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'product' not in st.session_state and st.session_state.page == 'search':
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
+            st.title('Semantic Product Search')
             num_rows = min(10, int(np.ceil(len(df) / products_per_row)))
             for i in range(num_rows):
                 start = i * products_per_row
@@ -204,7 +215,7 @@ def update_query_and_sort_results():
                                         filter={
                                             "asin": {"$in": st.session_state.filtered_asins},
                                             "n_tokens": {"$gt": 10},
-                                            "rating": {"$gt": 3}
+                                            "rating": {"$gte": 3}
                                         },
                                         top_k=1000,
                                         namespace='reviews', 
@@ -294,10 +305,10 @@ def recsys():
 # Prep tabular filter data
 @st.cache_data
 def get_all_tabular_categories(_client):
-    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products''').fetchall()
-    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products ORDER BY brand''').fetchall()
-    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products''').fetchall()
-    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products''').fetchone()
+    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 15''').fetchall()
+    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 15 ORDER BY brand''').fetchall()
+    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 15''').fetchall()
+    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 15''').fetchone()
     
     # Flatten the list of tuples
     distinct_categories = [item[0] for item in distinct_categories]
