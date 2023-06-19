@@ -86,96 +86,99 @@ def generate_response(user_input, asin):
 
 # PRODUCT PAGE
 def view(product_id, df):
-    tab1, tab2 = st.tabs(['Product', 'Chat with Reviews'])
     
-    with tab1:
-        image_column, info_column = st.columns(2)
-        product_series = df.loc[df.id == product_id, :].squeeze()
-        image_column.image(f'./assets_resized/{product_series["asin"]}.jpg', use_column_width='always')
+    if 'product' in st.session_state and st.session_state.product != '' and \
+        'page' in st.session_state and st.session_state.page == 'view':
+        tab1, tab2 = st.tabs(['Product', 'Chat with Reviews'])
         
-        print(product_id, product_series["asin"])
-        info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
-        info_column.write(f'**CATEGORY**: {product_series["category"]}')
-        info_column.write(f'**OS**: {product_series["operating_system"]}')
-        info_column.write(f'**BRAND**: {product_series["brand"]}')
-        info_column.write(f'**MODEL**: {product_series["model_name"]}')
-        info_column.write(f'**SERIES**: {product_series["series"]}')
-        info_column.write(f'**RAM**: {product_series["ram"]}')
-        info_column.write(f'**STORAGE**: {product_series["storage"]}')
-        info_column.write(f'**PRICE**: {product_series["price"]}')
-        info_column.write(f'**RATING**: {product_series["rating"]}')
-        info_column.write(f'**url**: {product_series["url"]}')
-        info_column.write(f'**PRODUCT DESCRIPTION**: {product_series["seller_text"]}')
-        if 'query_embedding' in st.session_state:
-            asin = product_series['asin']
+        with tab1:
+            image_column, info_column = st.columns(2)
+            product_series = df.loc[df.id == product_id, :].squeeze()
+            image_column.image(f'./assets_resized/{product_series["asin"]}.jpg', use_column_width='always')
             
-            results = pinecone_index.query(st.session_state.query_embedding, 
-                                            filter={
-                                                "asin": {"$eq": asin},
-                                            },
-                                            top_k=1,
-                                            namespace='reviews', 
-                                            include_metadata=True)
-            
-            # print(results)
-            date = results['matches'][0]['metadata']['date']
-            # n_tokens = results['matches'][0]['metadata']['n_tokens']
-            numPeopleFoundHelpful = results['matches'][0]['metadata']['numPeopleFoundHelpful']
-            rating = results['matches'][0]['metadata']['rating']
-            review_text = results['matches'][0]['metadata']['review_text']
-            url = results['matches'][0]['metadata']['url']
-            # weighting = results['matches'][0]['metadata']['weighting']
-            # max_sim = results['score']
+            # print(product_id, product_series["asin"])
+            info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
+            info_column.write(f'**CATEGORY**: {product_series["category"]}')
+            info_column.write(f'**OS**: {product_series["operating_system"]}')
+            info_column.write(f'**BRAND**: {product_series["brand"]}')
+            info_column.write(f'**MODEL**: {product_series["model_name"]}')
+            info_column.write(f'**SERIES**: {product_series["series"]}')
+            info_column.write(f'**RAM**: {product_series["ram"]}')
+            info_column.write(f'**STORAGE**: {product_series["storage"]}')
+            info_column.write(f'**PRICE**: {product_series["price"]}')
+            info_column.write(f'**RATING**: {product_series["rating"]}')
+            info_column.write(f'**url**: {product_series["url"]}')
+            info_column.write(f'**PRODUCT DESCRIPTION**: {product_series["seller_text"]}')
+            if 'query_embedding' in st.session_state:
+                asin = product_series['asin']
+                
+                results = pinecone_index.query(st.session_state.query_embedding, 
+                                                filter={
+                                                    "asin": {"$eq": asin},
+                                                },
+                                                top_k=1,
+                                                namespace='reviews', 
+                                                include_metadata=True)
+                
+                date = results['matches'][0]['metadata']['date']
+                numPeopleFoundHelpful = results['matches'][0]['metadata']['numPeopleFoundHelpful']
+                rating = results['matches'][0]['metadata']['rating']
+                review_text = results['matches'][0]['metadata']['review_text']
+                url = results['matches'][0]['metadata']['url']
 
-            info_column.write(f'**Most Similar Review to User Query**: {review_text}')
-            info_column.write(f'Review url: {url}')
-            info_column.write(f'Date: {date}')
-            info_column.write(f'Rating: {rating} / 5')
-            info_column.write(f'Num People who Found this Review Helpful: {numPeopleFoundHelpful}')
+                info_column.write(f'**Most Similar Review to User Query**: {review_text}')
+                info_column.write(f'Review url: {url}')
+                info_column.write(f'Date: {date}')
+                info_column.write(f'Rating: {rating} / 5')
+                info_column.write(f'Num People who Found this Review Helpful: {numPeopleFoundHelpful}')
 
-        if st.button('Back'):
-            del st.session_state['product']
-            # st.runtime.legacy_caching.clear_cache()
-            st.session_state.popped=False
-            st.session_state.page = 'search'
-            st.experimental_rerun()
+            if st.button('Back', key='back_tab1'):
+                del st.session_state['product']
+                st.session_state.popped=True
+                st.session_state.page = 'search'
+                st.experimental_rerun()
+                
+        with tab2:
             
-    with tab2:
-        
-        st.title("Reviews Chat")
-        user_input = st.text_input("Ask a question:")
-        if user_input:
-            asin = df.loc[df.id == product_id, 'asin'].item()
-            with st.spinner("Generating response..."):
-                chatbot_response = generate_response(user_input, asin)
-            st.write(chatbot_response)
+            st.title("Reviews Chat")
+            user_input = st.text_input("Ask a question:")
+            if user_input:
+                asin = df.loc[df.id == product_id, 'asin'].item()
+                with st.spinner("Generating response..."):
+                    chatbot_response = generate_response(user_input, asin)
+                st.write(chatbot_response)
+
+            if st.button('Back', key='back_tab2'):
+                del st.session_state['product']
+                st.session_state.popped=True
+                st.session_state.page = 'search'
+                st.experimental_rerun()
         
 # SINGLE PRODUCT PAGE
-# st.cache_data(experimental_allow_widgets=True)
-def set_viewed_product(product):#, df):
+def set_viewed_product(product):
     '''This is called when a user clicks on a product to view it'''
     st.session_state.product = product.id
-    # view(product.id, df)
     st.session_state.page = 'view'
     st.experimental_rerun()
 
 # HOME PAGE (recommended/ranked product list based on sidebar selections and user query)
 def view_products(df, products_per_row=7):
     '''Home page -- prior to Search button press, this just shows most popular products'''
-    if 'popped' not in st.session_state or st.session_state.popped==False:
-        num_rows = min(8, int(np.ceil(len(df) / products_per_row)))
-        for i in range(num_rows):
-            start = i * products_per_row
-            end = start + products_per_row
-            products = df.iloc[start:end]
-            columns = st.columns(products_per_row)
-            for product, column in zip(products.iterrows(), columns):# product is a tuple of (index, row)
-                container = column.container()
-                button_key = f"view_{product[1]['id']}"
-                if container.button('View', key=button_key):
-                    set_viewed_product(product=product[1])#, df=df)
-                container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
-        st.session_state.popped=True
+    if 'product' not in st.session_state and st.session_state.page == 'search':
+        if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
+            num_rows = min(8, int(np.ceil(len(df) / products_per_row)))
+            for i in range(num_rows):
+                start = i * products_per_row
+                end = start + products_per_row
+                products = df.iloc[start:end]
+                columns = st.columns(products_per_row)
+                for product, column in zip(products.iterrows(), columns):# product is a tuple of (index, row)
+                    container = column.container()
+                    button_key = f"view_{product[1]['id']}"
+                    if container.button('View', key=button_key):
+                        set_viewed_product(product=product[1])#, df=df)
+                    container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
+            st.session_state.popped=True
 
 # EMBED USER INPUT (search query or chatbot question)
 def get_embedding(text, model="text-embedding-ada-002", max_tokens=8000):
@@ -195,7 +198,6 @@ def update_query_and_sort_results():
     
     if 'query_embedding' in st.session_state and st.session_state.query_embedding \
         and 'filtered_asins' in st.session_state and st.session_state.filtered_asins:# \
-        # and 'filtered_products_df' in st.session_state and not st.session_state.filtered_products_df.empty:
         
         # get most similar **REVIEWS**
         results = pinecone_index.query(st.session_state.query_embedding, 
@@ -210,7 +212,7 @@ def update_query_and_sort_results():
         filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
         filtered_reviews_df['similarities'] = scores
         
-        n = 56
+        n = 70
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
         # drop duplicates in filtered_reviews_df (on asin), keep first
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
@@ -234,13 +236,6 @@ def update_query_and_sort_results():
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n*2) # return more since some will be removed
         filtered_products_df = filtered_products_df[~filtered_products_df['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')] # don't recommend similar products
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n) # return desired amount
-        # print(filtered_products_df.head())
-        # print(filtered_products_df.columns.tolist())
-        # filtered_products_df.reset_index(inplace=True, drop=True)
-        # filtered_products_df.reset_index(inplace=True, drop=False)
-        # filtered_products_df.rename(columns={'index': 'id'}, inplace=True) # get new ordering
-        # cast to string?
-        # filtered_products_df['id'] = filtered_products_df['id'].astype(str)
         
         st.session_state.filtered_products_df = filtered_products_df
 
@@ -248,17 +243,19 @@ def recsys():
     with st.spinner('Searching...'):
         time.sleep(1)
         
-        if 'category_multi_select' in st.session_state and st.session_state.category_multi_select:
+        if ('FormSubmitter:filter_form-Apply Filters' in st.session_state and st.session_state['FormSubmitter:filter_form-Apply Filters']) or \
+            ('from_reload' in st.session_state and st.session_state.from_reload):
+
             # Get user selections for tabular filters
-            category_selection = str(tuple(st.session_state.category_multi_select)) if st.session_state.category_multi_select else None
-            brand_selection = str(tuple(st.session_state.brand_multi_select)) if st.session_state.brand_multi_select else None
-            os_selection = str(tuple(st.session_state.os_multi_select)) if st.session_state.os_multi_select else None
+            category_selection = str(tuple(st.session_state.category_multi_selection)) if st.session_state.category_multi_selection else None
+            brand_selection = str(tuple(st.session_state.brand_multi_selection)) if st.session_state.brand_multi_selection else None
+            os_selection = str(tuple(st.session_state.os_multi_selection)) if st.session_state.os_multi_selection else None
             # Remove trailing comma for single-item tuples
-            if category_selection and len(st.session_state.category_multi_select) == 1:
+            if category_selection and len(st.session_state.category_multi_selection) == 1:
                 category_selection = category_selection.replace(",", "")
-            if brand_selection and len(st.session_state.brand_multi_select) == 1:
+            if brand_selection and len(st.session_state.brand_multi_selection) == 1:
                 brand_selection = brand_selection.replace(",", "")
-            if os_selection and len(st.session_state.os_multi_select) == 1:
+            if os_selection and len(st.session_state.os_multi_selection) == 1:
                 os_selection = os_selection.replace(",", "")
 
             # Build tabular query string dynamically
@@ -282,8 +279,6 @@ def recsys():
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
         st.session_state.filtered_products_df = filtered_products_df
-
-        # st.session_state.filtered_products_df = filtered_products_df
         
         filtered_asins = filtered_products_df.asin.tolist()
         # st.ss.INIT: filtered_asins
@@ -291,6 +286,8 @@ def recsys():
         
         update_query_and_sort_results()
         view_products(st.session_state.filtered_products_df)
+        st.session_state.popped=True
+        st.session_state.from_reload=False
         
 # Prep tabular filter data
 @st.cache_data
@@ -310,7 +307,6 @@ def get_all_tabular_categories(_client):
     st.session_state.distinct_operating_systems = distinct_operating_systems
     st.session_state.min_max_price_tuple = min_max_price_tuple
     
-    return distinct_categories, distinct_brands, distinct_operating_systems, min_max_price_tuple
 
 client = load_sql()
 pinecone_index = load_pinecone()
@@ -318,23 +314,25 @@ pinecone_index = load_pinecone()
 if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
     get_all_tabular_categories(client)
 
-# def home_sidebar():
+if 'page' not in st.session_state:
+    st.session_state.page = 'search'
+
+# SIDEBAR -- submit button active on home page only
 with st.sidebar.form(key='filter_form'):
 
     if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
         st.text_input("Enter your query: (optional)", key='query_for_sorting')
     else:
         st.text_input("Enter your query: (optional)", key='query_for_sorting', value=st.session_state.query_for_sorting)
-    # st.markdown("_Please press Enter after typing to submit the query._", unsafe_allow_html=True)
 
     if ('category_multi_selection' not in st.session_state) or (not st.session_state.category_multi_selection):
-        category_multi_select = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.distinct_categories, key="category_multi_selection")
-        brand_multi_select = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection")
-        os_multi_select = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.distinct_operating_systems, key="os_multi_selection")
+        category_multi_selection = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.distinct_categories, key="category_multi_selection")
+        brand_multi_selection = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection")
+        os_multi_selection = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.distinct_operating_systems, key="os_multi_selection")
     else:
-        category_multi_select = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.category_multi_selection, key="category_multi_selection")
-        brand_multi_select = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.brand_multi_selection, key="brand_multi_selection")
-        os_multi_select = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.os_multi_selection, key="os_multi_selection")
+        category_multi_selection = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.category_multi_selection, key="category_multi_selection")
+        brand_multi_selection = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.brand_multi_selection, key="brand_multi_selection")
+        os_multi_selection = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.os_multi_selection, key="os_multi_selection")
         
 
     price_slider = st.slider(
@@ -353,17 +351,17 @@ with st.sidebar.form(key='filter_form'):
         key="rating_slider"
     )
     
-    submit = st.form_submit_button(label='Apply Filters', on_click=recsys)
+    allow_click = False
+    if 'page' in st.session_state and st.session_state.page == 'view':
+        allow_click = True
+    st.form_submit_button(label='Apply Filters', on_click=recsys, disabled=allow_click)
 
-# st.ss.INIT: page
-if 'page' not in st.session_state:
-    st.session_state.page = 'search'
-
+# HOME/SEARCH PAGE
 if st.session_state.page == 'search' and ('product' not in st.session_state):
-    st.session_state.popped=False
-    # home_sidebar()
+    st.session_state.from_reload = True
     recsys()
 
+# PRODUCT PAGE
 elif st.session_state.page == 'view':
     if 'product' in st.session_state and st.session_state['product'] in st.session_state.filtered_products_df['id'].values:
         view(st.session_state['product'], st.session_state.filtered_products_df)
