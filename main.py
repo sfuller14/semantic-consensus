@@ -18,6 +18,7 @@ openai.api_key = st.secrets["OPENAI_API_KEY"]
 def load_sql():
     conn = sqlite3.connect('ecommerce.sqlite', check_same_thread=False)
     client = conn.cursor()
+    client.execute('PRAGMA journal_mode=WAL')
     return client
 
 
