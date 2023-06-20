@@ -1,0 +1,3 @@
+tiktoken
+pinecone
+openai
