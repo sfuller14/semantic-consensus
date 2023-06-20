@@ -1,7 +1,7 @@
 # semantic-consensus
 E-commerce intelligent search platform. Pinecone/Devpost Hackathon 2023.
 
-* Perform hybrid (tabular + semantic) search recommendation system for laptops and desktops on Amazon.
+* Hybrid (tabular + semantic) search platform/recsys for laptops and desktops on Amazon.
 * Get more personalized results by querying directly on reviews. 
 * Get unbiased product info (and access targeted aspect-based sentiments) by chatting with aggregated reviews.
 
