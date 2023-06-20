@@ -54,11 +54,14 @@ def stream_response(user_input, asin):
         
     context += "\n**RESPONSE:**\n"
     system_prompt = f"""You are a helpful assistant that reads Amazon reviews of a computer hardware product in order to answer questions for Amazon users. 
-    Determine if the user's question is specific to the selected product or a general question about computers (or anything else). If general, ignore the reviews and provide a general response. If product-specific, perform the following steps:
+    Determine if the user's question is specific to the selected product or a general question about computers. 
+    If the question is unrelated to computers or the product, respond with "I don't know".  
+    If the question is about computers generally, ignore the reviews and provide a general response. 
+    If product-specific, perform the following steps:  
     
     1) Read the following reviews and determine which portions of the reviews are relevant to the user's question
-    2) In a bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
-    3) Finally, provide a response to the user's question based on the reviews
+    2) In a markdown bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
+    3) Finally, provide a markdown paragraph response to the user's question based on the reviews
 
     {context}
     """
@@ -66,17 +69,6 @@ def stream_response(user_input, asin):
         {"role": "system", "content": f"{system_prompt}"},
         {"role": "user", "content": user_input},
     ]
-
-
-    # --> OpenAI
-    # response = openai.ChatCompletion.create(
-    #     model="gpt-4",
-    #     messages=messages,
-    #     max_tokens=1000,
-    #     n=1,
-    #     stop=None,
-    #     temperature=0,
-    # )
     
     # --> Response
     res_box = st.empty()
