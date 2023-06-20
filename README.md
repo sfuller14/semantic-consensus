@@ -9,4 +9,6 @@ Pinecone + Apify + OpenAI API + Streamlit.
 
 Try it out at https://sfuller14-ecommerce-semantic-consensus.streamlit.app/
 
+Demo:
+
 https://github.com/sfuller14/semantic-consensus/assets/54780092/4d7962a7-9db2-480c-9284-988feb9cdc1a
