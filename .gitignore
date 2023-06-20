@@ -1,6 +1,6 @@
 ecommerce.db
-ecommerce.db-shm
-ecommerce.db-wal
+ecommerce.sqlite-shm
+ecommerce.sqlite-wal
 amazon_data/
 data_pipeline/file_mgr.ipynb
 **.DS_Store

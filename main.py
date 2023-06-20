@@ -165,7 +165,8 @@ def view_products(df, products_per_row=7):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'product' not in st.session_state and st.session_state.page == 'search':
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
-            st.title('Semantic Product Search')
+            st.header('E-Commerce Semantic Consensus')
+            st.caption('Tabular + Semantic Search on Product Reviews with Pinecone')
             num_rows = min(10, int(np.ceil(len(df) / products_per_row)))
             for i in range(num_rows):
                 start = i * products_per_row
