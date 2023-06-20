@@ -328,6 +328,8 @@ with st.sidebar.form(key='filter_form'):
         st.text_input("Enter your query: (optional)", key='query_for_sorting', value=st.session_state.query_for_sorting)
 
     if ('category_multi_selection' not in st.session_state) or (not st.session_state.category_multi_selection):
+        if 'distinct_categories' not in st.session_state:
+            get_all_tabular_categories(client)
         category_multi_selection = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.distinct_categories, key="category_multi_selection")
         brand_multi_selection = st.multiselect('Computer Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection")
         os_multi_selection = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.distinct_operating_systems, key="os_multi_selection")
