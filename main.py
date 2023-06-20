@@ -10,23 +10,20 @@ import tiktoken
 import sqlite3
 import pinecone
 import openai
-from dotenv import dotenv_values
-config = dotenv_values(".env")
 
-openai.api_key = config["OPENAI_API_KEY"]
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # region load_dbs
 @st.cache_resource
 def load_sql():
-    conn = sqlite3.connect('ecommerce.db', check_same_thread=False)
+    conn = sqlite3.connect('ecommerce.sqlite', check_same_thread=False)
     client = conn.cursor()
-    client.execute('PRAGMA journal_mode=WAL')
     return client
 
 
 @st.cache_resource
 def load_pinecone():
-    pinecone.init(api_key=config['PINECONE_API_KEY'], environment=config['PINECONE_ENVIRONMENT'])
+    pinecone.init(api_key=st.secrets['PINECONE_API_KEY'], environment=st.secrets['PINECONE_ENVIRONMENT'])
     return pinecone.Index("ecommerce")
 # endregion load_dbs
 
@@ -39,11 +36,10 @@ def stream_response(user_input, asin):
     query_embedding = res['data'][0]['embedding']
 
     # --> Pinecone --> Similar docs
-    top_k = 20
+    top_k = 12
     results = pinecone_index.query(query_embedding, 
                                     filter={
-                                        "asin": {"$eq": asin},
-                                        "n_tokens": {"$gt": 10}
+                                        "asin": {"$eq": asin}
                                     },
                                     top_k=top_k,
                                     namespace='reviews', 
@@ -61,7 +57,7 @@ def stream_response(user_input, asin):
     Determine if the user's question is specific to the selected product or a general question about computers (or anything else). If general, ignore the reviews and provide a general response. If product-specific, perform the following steps:
     
     1) Read the following reviews and determine which portions of the reviews are relevant to the user's question
-    2) In a bulleted list, provide 0-7 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
+    2) In a bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
     3) Finally, provide a response to the user's question based on the reviews
 
     {context}
@@ -121,7 +117,7 @@ def view(product_id, df):
                 results = pinecone_index.query(st.session_state.query_embedding, 
                                                 filter={
                                                     "asin": {"$eq": asin},
-                                                    "n_tokens": {"$gt": 10}
+                                                    "n_tokens": {"$gt": 7}
                                                 },
                                                 top_k=1,
                                                 namespace='reviews', 
@@ -214,7 +210,7 @@ def update_query_and_sort_results():
         results = pinecone_index.query(st.session_state.query_embedding, 
                                         filter={
                                             "asin": {"$in": st.session_state.filtered_asins},
-                                            "n_tokens": {"$gt": 10},
+                                            "n_tokens": {"$gt": 7},
                                             "rating": {"$gte": 3}
                                         },
                                         top_k=1000,
@@ -249,6 +245,7 @@ def update_query_and_sort_results():
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n*2) # return more since some will be removed
         filtered_products_df = filtered_products_df[~filtered_products_df['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')] # don't recommend similar products
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n) # return desired amount
+        # filtered_products_df = filtered_products_df.sort_values('num_reviews', ascending=False).head(n) # return desired amount
         
         st.session_state.filtered_products_df = filtered_products_df
 
@@ -305,10 +302,10 @@ def recsys():
 # Prep tabular filter data
 @st.cache_data
 def get_all_tabular_categories(_client):
-    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 15''').fetchall()
-    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 15 ORDER BY brand''').fetchall()
-    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 15''').fetchall()
-    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 15''').fetchone()
+    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 25''').fetchall()
+    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 25 ORDER BY brand''').fetchall()
+    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 25''').fetchall()
+    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 25''').fetchone()
     
     # Flatten the list of tuples
     distinct_categories = [item[0] for item in distinct_categories]

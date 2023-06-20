@@ -6,8 +6,9 @@ data_pipeline/file_mgr.ipynb
 **.DS_Store
 .DS_Store
 .env
-assets_resized/
-assets_resized/*
+# assets_resized/
+# assets_resized/*
 .vscode/
 .vscode
 scratch.ipynb
+/.streamlit/secrets.toml
