@@ -292,7 +292,7 @@ def recsys():
         st.session_state.from_reload=False
         
 # Prep tabular filter data
-@st.cache_data
+# @st.cache_data
 def get_all_tabular_categories(_client):
     distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 25''').fetchall()
     distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 25 ORDER BY brand''').fetchall()
