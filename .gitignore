@@ -12,3 +12,4 @@ data_pipeline/file_mgr.ipynb
 .vscode
 scratch.ipynb
 /.streamlit/secrets.toml
+/data_pipeline/queries.ipynb

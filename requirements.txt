@@ -1,3 +1,5 @@
 tiktoken
 pinecone-client
 openai
+psycopg2
+cohere
