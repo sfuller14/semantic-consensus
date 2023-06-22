@@ -10,6 +10,8 @@ import tiktoken
 import sqlite3
 import pinecone
 import openai
+import cohere
+co = cohere.Client(st.secrets["COHERE_KEY"])
 
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -37,7 +39,7 @@ def stream_response(user_input, asin):
     query_embedding = res['data'][0]['embedding']
 
     # --> Pinecone --> Similar docs
-    top_k = 12
+    top_k = 100
     results = pinecone_index.query(query_embedding, 
                                     filter={
                                         "asin": {"$eq": asin}
@@ -46,11 +48,17 @@ def stream_response(user_input, asin):
                                     namespace='reviews', 
                                     include_metadata=True)
 
+    documents = [r['metadata']['review_text'] for r in results['matches']]
+
+    rerank_hits = co.rerank(query=user_input, documents=documents, top_n=12, model="rerank-multilingual-v2.0")
+    pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
+    reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
+
  
     # --> Combine prompt with similar docs
     context = f"**USER QUESTION:**\n{user_input}\n\n**REVIEWS:**\n"
 
-    for doc in results['matches']:#[0]['metadata']:
+    for doc in reranked_results:#[0]['metadata']:
         context += f"{doc['metadata']['url']}: {doc['metadata']['review_text']}\n"
         
     context += "\n**RESPONSE:**\n"
@@ -116,11 +124,17 @@ def view(product_id, df):
                                                 namespace='reviews', 
                                                 include_metadata=True)
                 
-                date = results['matches'][0]['metadata']['date']
-                numPeopleFoundHelpful = results['matches'][0]['metadata']['numPeopleFoundHelpful']
-                rating = results['matches'][0]['metadata']['rating']
-                review_text = results['matches'][0]['metadata']['review_text']
-                url = results['matches'][0]['metadata']['url']
+                documents = [r['metadata']['review_text'] for r in results['matches']]
+
+                rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=1, model="rerank-multilingual-v2.0")
+                pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
+                reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
+
+                date = reranked_results[0]['metadata']['date']
+                numPeopleFoundHelpful = reranked_results[0]['metadata']['numPeopleFoundHelpful']
+                rating = reranked_results[0]['metadata']['rating']
+                review_text = reranked_results[0]['metadata']['review_text']
+                url = reranked_results[0]['metadata']['url']
 
                 info_column.write(f'**Most Similar Review to User Query**: {review_text}')
                 info_column.write(f'Review url: {url}')
@@ -207,7 +221,7 @@ def update_query_and_sort_results():
                                             "n_tokens": {"$gt": 7},
                                             "rating": {"$gte": 3}
                                         },
-                                        top_k=1000,
+                                        top_k=750,
                                         namespace='reviews', 
                                         include_metadata=True)
         
@@ -217,9 +231,25 @@ def update_query_and_sort_results():
         
         n = 77
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
+
+        documents = filtered_reviews_df.review_text.tolist()
+
+        rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=n*4, model="rerank-multilingual-v2.0")
+        cohere_ranks = [i for i in range(0, len(rerank_hits.results))]
+        pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
+        cohere_scores = [rerank_hits.results[i].relevance_score for i in range(0, len(rerank_hits.results))]
+
+        pinecone_to_cohere_dict = dict(zip(pinecone_ranks, cohere_ranks))
+        pinecone_to_cohere_scores = dict(zip(pinecone_ranks, cohere_scores))
+        filtered_reviews_df.reset_index(drop=False, inplace=True)
+        filtered_reviews_df.rename({'index':'pinecone_rank'}, axis=1, inplace=True)
+        filtered_reviews_df['cohere_rank'] = filtered_reviews_df['pinecone_rank'].map(pinecone_to_cohere_dict)
+        filtered_reviews_df['cohere_score'] = filtered_reviews_df['pinecone_rank'].map(pinecone_to_cohere_scores)
+        filtered_reviews_df = filtered_reviews_df.loc[(~filtered_reviews_df.cohere_rank.isna()),:].sort_values('cohere_score', ascending=False)
+
         # drop duplicates in filtered_reviews_df (on asin), keep first
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
-        filtered_reviews_df = filtered_reviews_df.head(n*6)
+        filtered_reviews_df = filtered_reviews_df.head(n*4)
         rank_dict = dict(zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1)))
 
         filtered_asins = filtered_reviews_df.asin.tolist()
