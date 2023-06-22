@@ -7,34 +7,25 @@ import warnings
 warnings.filterwarnings('ignore')
 import os
 import tiktoken
-import psycopg2
+import sqlite3
 import pinecone
 import openai
+
 openai.api_key = st.secrets["OPENAI_API_KEY"]
-import cohere
-co = cohere.Client(st.secrets["COHERE_KEY"])
 
 # region load_dbs
 @st.cache_resource
 def load_sql():
-    conn = psycopg2.connect(
-        host=st.secrets['AWS_RDS_hostname'] + '.us-east-2.rds.amazonaws.com',
-        port=st.secrets['AWS_RDS_port'],
-        dbname=st.secrets['AWS_RDS_db'],
-        user=st.secrets['AWS_RDS_un'],
-        password=st.secrets['AWS_RDS_pw']
-    )
-    conn.autocommit = True
+    conn = sqlite3.connect('ecommerce.sqlite', check_same_thread=False)
     client = conn.cursor()
+    client.execute('PRAGMA journal_mode=WAL')
     return client
+
 
 @st.cache_resource
 def load_pinecone():
     pinecone.init(api_key=st.secrets['PINECONE_API_KEY'], environment=st.secrets['PINECONE_ENVIRONMENT'])
     return pinecone.Index("ecommerce")
-
-client = load_sql()
-pinecone_index = load_pinecone()
 # endregion load_dbs
 
 # CHAT FUNCTION
@@ -46,7 +37,7 @@ def stream_response(user_input, asin):
     query_embedding = res['data'][0]['embedding']
 
     # --> Pinecone --> Similar docs
-    top_k = 100
+    top_k = 12
     results = pinecone_index.query(query_embedding, 
                                     filter={
                                         "asin": {"$eq": asin}
@@ -56,16 +47,10 @@ def stream_response(user_input, asin):
                                     include_metadata=True)
 
  
-    documents = [r['metadata']['review_text'] for r in results['matches']]
-    
-    rerank_hits = co.rerank(query=user_input, documents=documents, top_n=12, model="rerank-multilingual-v2.0")
-    pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
-    reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
-
     # --> Combine prompt with similar docs
     context = f"**USER QUESTION:**\n{user_input}\n\n**REVIEWS:**\n"
 
-    for doc in reranked_results:
+    for doc in results['matches']:#[0]['metadata']:
         context += f"{doc['metadata']['url']}: {doc['metadata']['review_text']}\n"
         
     context += "\n**RESPONSE:**\n"
@@ -104,7 +89,7 @@ def view(product_id, df):
         with tab1:
             image_column, info_column = st.columns(2)
             product_series = df.loc[df.id == product_id, :].squeeze()
-            image_column.image(f'./images_resized/{product_series["asin"]}.jpg', use_column_width='always')
+            image_column.image(f'./assets_resized/{product_series["asin"]}.jpg', use_column_width='always')
             
             # print(product_id, product_series["asin"])
             info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
@@ -131,17 +116,11 @@ def view(product_id, df):
                                                 namespace='reviews', 
                                                 include_metadata=True)
                 
-                documents = [r['metadata']['review_text'] for r in results['matches']]
-                
-                rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=1, model="rerank-multilingual-v2.0")
-                pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
-                reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
-                
-                date = reranked_results[0]['metadata']['date']
-                numPeopleFoundHelpful = reranked_results[0]['metadata']['numPeopleFoundHelpful']
-                rating = reranked_results[0]['metadata']['rating']
-                review_text = reranked_results[0]['metadata']['review_text']
-                url = reranked_results[0]['metadata']['url']
+                date = results['matches'][0]['metadata']['date']
+                numPeopleFoundHelpful = results['matches'][0]['metadata']['numPeopleFoundHelpful']
+                rating = results['matches'][0]['metadata']['rating']
+                review_text = results['matches'][0]['metadata']['review_text']
+                url = results['matches'][0]['metadata']['url']
 
                 info_column.write(f'**Most Similar Review to User Query**: {review_text}')
                 info_column.write(f'Review url: {url}')
@@ -199,7 +178,7 @@ def view_products(df, products_per_row=7):
                     button_key = f"view_{product[1]['id']}"
                     if container.button('View', key=button_key):
                         set_viewed_product(product=product[1])#, df=df)
-                    container.image(f'./images_resized/{product[1]["asin"]}.jpg', use_column_width='always')
+                    container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
             st.session_state.popped=True
 
 # EMBED USER INPUT (search query or chatbot question)
@@ -228,7 +207,7 @@ def update_query_and_sort_results():
                                             "n_tokens": {"$gt": 7},
                                             "rating": {"$gte": 3}
                                         },
-                                        top_k=750,
+                                        top_k=1000,
                                         namespace='reviews', 
                                         include_metadata=True)
         
@@ -238,25 +217,9 @@ def update_query_and_sort_results():
         
         n = 77
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
-        
-        documents = filtered_reviews_df.review_text.tolist()
-
-        rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=77*4, model="rerank-multilingual-v2.0")
-        cohere_ranks = [i for i in range(0, len(rerank_hits.results))]
-        pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
-        cohere_scores = [rerank_hits.results[i].relevance_score for i in range(0, len(rerank_hits.results))]
-
-        pinecone_to_cohere_dict = dict(zip(pinecone_ranks, cohere_ranks))
-        pinecone_to_cohere_scores = dict(zip(pinecone_ranks, cohere_scores))
-        filtered_reviews_df.reset_index(drop=False, inplace=True)
-        filtered_reviews_df.rename({'index':'pinecone_rank'}, axis=1, inplace=True)
-        filtered_reviews_df['cohere_rank'] = filtered_reviews_df['pinecone_rank'].map(pinecone_to_cohere_dict)
-        filtered_reviews_df['cohere_score'] = filtered_reviews_df['pinecone_rank'].map(pinecone_to_cohere_scores)
-        filtered_reviews_df = filtered_reviews_df.loc[(~filtered_reviews_df.cohere_rank.isna()),:].sort_values('cohere_score', ascending=False)
-        
         # drop duplicates in filtered_reviews_df (on asin), keep first
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
-        filtered_reviews_df = filtered_reviews_df.head(n*4)
+        filtered_reviews_df = filtered_reviews_df.head(n*6)
         rank_dict = dict(zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1)))
 
         filtered_asins = filtered_reviews_df.asin.tolist()
@@ -264,8 +227,7 @@ def update_query_and_sort_results():
         
         # convert from reviews to **PRODUCTS**
         query = f"SELECT * FROM products WHERE asin IN {tuple(filtered_asins)}"
-        client.execute(query)
-        result_set = client.fetchall()
+        result_set = client.execute(query).fetchall()
         
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
@@ -317,8 +279,7 @@ def recsys():
         else:
             query = f'SELECT * FROM products'
         
-        client.execute(query)
-        result_set = client.fetchall()
+        result_set = client.execute(query).fetchall()
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
         st.session_state.filtered_products_df = filtered_products_df
@@ -335,14 +296,10 @@ def recsys():
 # Prep tabular filter data
 # @st.cache_data
 def get_all_tabular_categories(_client):
-    _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 25''')
-    distinct_categories = _client.fetchall()
-    _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 25 ORDER BY brand''')
-    distinct_brands = _client.fetchall()
-    _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 25''')
-    distinct_operating_systems = _client.fetchall()
-    _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 25''')
-    min_max_price_tuple = _client.fetchone()
+    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 25''').fetchall()
+    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 25 ORDER BY brand''').fetchall()
+    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 25''').fetchall()
+    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 25''').fetchone()
     
     # Flatten the list of tuples
     distinct_categories = [item[0] for item in distinct_categories]
@@ -354,6 +311,9 @@ def get_all_tabular_categories(_client):
     st.session_state.distinct_operating_systems = distinct_operating_systems
     st.session_state.min_max_price_tuple = min_max_price_tuple
     
+
+client = load_sql()
+pinecone_index = load_pinecone()
 
 if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
     get_all_tabular_categories(client)

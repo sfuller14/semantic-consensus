@@ -1,5 +1,4 @@
 tiktoken
 pinecone-client
 openai
-psycopg2-binary
 cohere
