@@ -1,6 +1,6 @@
 version: "3.4"
 services:
   streamlit:
-    image: 551238779288.dkr.ecr.us-east-2.amazonaws.com/ecommerce-semantic-recsys:20230623021201
+    image: 551238779288.dkr.ecr.us-east-2.amazonaws.com/ecommerce-semantic-recsys:20230623022615
     ports:
       - 80:8501
