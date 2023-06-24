@@ -5,7 +5,7 @@ TS=$(shell date +'%Y%m%d%H%M%S')
 TAG=${IMAGE_NAME}:${TS}
 
 deploy:## Rebuild docker image with a new tag and push to ECR
-		docker buildx build --platform linux/amd64 --build-arg AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) \
+		docker buildx build --file docker/Dockerfile --platform linux/amd64 AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) \
              --build-arg AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) \
              --build-arg PINECONE_API_KEY=$(PINECONE_API_KEY) \
              --build-arg PINECONE_ENVIRONMENT=$(PINECONE_ENVIRONMENT) \
@@ -21,8 +21,9 @@ deploy:## Rebuild docker image with a new tag and push to ECR
 	aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_ENDPOINT}
 	docker tag ${TAG} ${ECR_ENDPOINT}/${TAG}
 	docker push ${ECR_ENDPOINT}/${TAG}
-	sed -i '' 's#^\( *image: *\).*#\1'${ECR_ENDPOINT}'/'${TAG}'#' docker-compose.yaml
-	git add docker-compose.yaml
+	sed -i '' 's#^\( *image: *\).*#\1'${ECR_ENDPOINT}'/'${TAG}'#' docker/docker-compose.yaml
+    git add docker/docker-compose.yaml
+
 	git commit -m "autocommit: image version updated"
 	eb deploy
 
