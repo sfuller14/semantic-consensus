@@ -117,7 +117,7 @@ def view(product_id, df):
         with tab1:
             image_column, info_column = st.columns(2)
             product_series = df.loc[df.id == product_id, :].squeeze()
-            image_column.image(f'./assets_resized/{product_series["asin"]}.jpg', use_column_width='always')
+            image_column.image(f'./thumbnails/{product_series["asin"]}.jpg', use_column_width='always')
             
             # print(product_id, product_series["asin"])
             info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
@@ -212,7 +212,7 @@ def view_products(df, products_per_row=7):
                     button_key = f"view_{product[1]['id']}"
                     if container.button('View', key=button_key):
                         set_viewed_product(product=product[1])#, df=df)
-                    container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
+                    container.image(f'./thumbnails/{product[1]["asin"]}.jpg', use_column_width='always')
             st.session_state.popped=True
 
 # EMBED USER INPUT (search query or chatbot question)
