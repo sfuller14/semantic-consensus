@@ -10,19 +10,31 @@ import tiktoken
 import psycopg2
 import pinecone
 import openai
-openai.api_key = st.secrets["OPENAI_API_KEY"]
 import cohere
-co = cohere.Client(st.secrets["COHERE_KEY"])
+from dotenv import load_dotenv
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+openai.api_key = OPENAI_API_KEY
+COHERE_KEY = os.getenv('COHERE_KEY')
+AWS_RDS_HOSTNAME = os.getenv('AWS_RDS_HOSTNAME')
+AWS_RDS_PORT = os.getenv('AWS_RDS_PORT')
+AWS_RDS_DB = os.getenv('AWS_RDS_DB')
+AWS_RDS_UN = os.getenv('AWS_RDS_UN')
+AWS_RDS_PW = os.getenv('AWS_RDS_PW')
+PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
+PINECONE_ENVIRONMENT = os.getenv('PINECONE_ENVIRONMENT')
+co = cohere.Client(COHERE_KEY)
 
 # region load_dbs
 @st.cache_resource
 def load_sql():
     conn = psycopg2.connect(
-        host=st.secrets['AWS_RDS_hostname'] + '.us-east-2.rds.amazonaws.com',
-        port=st.secrets['AWS_RDS_port'],
-        dbname=st.secrets['AWS_RDS_db'],
-        user=st.secrets['AWS_RDS_un'],
-        password=st.secrets['AWS_RDS_pw']
+        host=AWS_RDS_HOSTNAME + '.us-east-2.rds.amazonaws.com',
+        port=AWS_RDS_PORT,
+        dbname=AWS_RDS_DB,
+        user=AWS_RDS_UN,
+        password=AWS_RDS_PW
     )
     conn.autocommit = True
     client = conn.cursor()
@@ -30,7 +42,7 @@ def load_sql():
 
 @st.cache_resource
 def load_pinecone():
-    pinecone.init(api_key=st.secrets['PINECONE_API_KEY'], environment=st.secrets['PINECONE_ENVIRONMENT'])
+    pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
     return pinecone.Index("ecommerce")
 
 client = load_sql()
