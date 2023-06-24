@@ -38,14 +38,15 @@ def load_sql():
     )
     conn.autocommit = True
     client = conn.cursor()
-    client.execute('PRAGMA journal_mode=WAL')
     return client
-
 
 @st.cache_resource
 def load_pinecone():
     pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
     return pinecone.Index("ecommerce")
+
+client = load_sql()
+pinecone_index = load_pinecone()
 # endregion load_dbs
 
 # CHAT FUNCTION
@@ -178,9 +179,6 @@ def view(product_id, df):
             user_input = st.text_input("Ask a question:")
             if user_input:
                 asin = df.loc[df.id == product_id, 'asin'].item()
-                # with st.spinner("Generating response..."):
-                #     chatbot_response = generate_response(user_input, asin)
-                # st.write(chatbot_response)
                 
                 stream_response(user_input, asin)
 
@@ -222,6 +220,7 @@ def get_embedding(text, model="text-embedding-ada-002", max_tokens=8000):
 
     return openai.Embedding.create(input=[text], model=model)['data'][0]['embedding']
 
+# Determine products to display based on sidebar selections and query
 def update_query_and_sort_results():
     if 'query_for_sorting' in st.session_state and st.session_state.query_for_sorting != '':
         st.session_state.query_embedding = get_embedding(st.session_state.query_for_sorting, model='text-embedding-ada-002')
@@ -275,7 +274,8 @@ def update_query_and_sort_results():
         
         # convert from reviews to **PRODUCTS**
         query = f"SELECT * FROM products WHERE asin IN {tuple(filtered_asins)}"
-        result_set = client.execute(query).fetchall()
+        client.execute(query)
+        result_set = client.fetchall()
         
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
@@ -286,8 +286,8 @@ def update_query_and_sort_results():
         # first sort 
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n*2) # return more since some will be removed
         filtered_products_df = filtered_products_df[~filtered_products_df['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')] # don't recommend similar products
+        # filtered_products_df = filtered_products_df.sort_values('num_reviews', ascending=False).head(n) # return desired amount (used prior to rerank implementation)
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n) # return desired amount
-        # filtered_products_df = filtered_products_df.sort_values('num_reviews', ascending=False).head(n) # return desired amount
         
         st.session_state.filtered_products_df = filtered_products_df
 
@@ -327,7 +327,8 @@ def recsys():
         else:
             query = f'SELECT * FROM products'
         
-        result_set = client.execute(query).fetchall()
+        client.execute(query)
+        result_set = client.fetchall()
         columns = [column[0] for column in client.description]
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
         st.session_state.filtered_products_df = filtered_products_df
@@ -342,12 +343,15 @@ def recsys():
         st.session_state.from_reload=False
         
 # Prep tabular filter data
-# @st.cache_data
 def get_all_tabular_categories(_client):
-    distinct_categories = _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 25''').fetchall()
-    distinct_brands = _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 25 ORDER BY brand''').fetchall()
-    distinct_operating_systems = _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 25''').fetchall()
-    min_max_price_tuple = _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 25''').fetchone()
+    _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 20''')
+    distinct_categories = _client.fetchall()
+    _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 20 ORDER BY brand''')
+    distinct_brands = _client.fetchall()
+    _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 20''')
+    distinct_operating_systems = _client.fetchall()
+    _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 20''')
+    min_max_price_tuple = _client.fetchone()
     
     # Flatten the list of tuples
     distinct_categories = [item[0] for item in distinct_categories]
@@ -359,13 +363,11 @@ def get_all_tabular_categories(_client):
     st.session_state.distinct_operating_systems = distinct_operating_systems
     st.session_state.min_max_price_tuple = min_max_price_tuple
     
-
-client = load_sql()
-pinecone_index = load_pinecone()
-
+# If no user search query, get all products
 if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
     get_all_tabular_categories(client)
 
+# Default to search page on app open
 if 'page' not in st.session_state:
     st.session_state.page = 'search'
 

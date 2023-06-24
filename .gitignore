@@ -1,4 +1,6 @@
-scratch.ipynb
 .DS_Store
 deployscript.sh
 docker/deployscript.sh
+docker/deployscript_local.sh
+scratch.ipynb
+.env
