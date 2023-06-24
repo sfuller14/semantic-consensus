@@ -7,7 +7,7 @@ E-commerce intelligent search platform. Pinecone/Devpost Hackathon 2023.
 
 Pinecone + Apify + OpenAI API + Streamlit.
 
-Try it out at https://sfuller14-ecommerce-semantic-consensus.streamlit.app/
+Try it out at https://ecommerce-recsys.us-east-2.elasticbeanstalk.com/
 
 ### Narrated Demo:
 https://youtu.be/5KyWZLdwDzo
