@@ -1,8 +1,4 @@
 scratch.ipynb
 .DS_Store
 deployscript.sh
-dockers/deployscript.sh
-# Elastic Beanstalk Files
-.elasticbeanstalk/*
-!.elasticbeanstalk/*.cfg.yml
-!.elasticbeanstalk/*.global.yml
+docker/deployscript.sh

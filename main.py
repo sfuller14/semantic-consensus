@@ -26,8 +26,6 @@ PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
 PINECONE_ENVIRONMENT = os.getenv('PINECONE_ENVIRONMENT')
 co = cohere.Client(COHERE_KEY)
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-
 # region load_dbs
 @st.cache_resource
 def load_sql():
