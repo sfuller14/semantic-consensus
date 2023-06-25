@@ -29,10 +29,7 @@ co = cohere.Client(COHERE_KEY)
 # endregion API-keys
 
 # region streamlit-config
-if 'sidebar_state' not in st.session_state:
-    st.session_state.sidebar_state = 'expanded'
-
-st.set_page_config(page_title='E-Commerce Recsys', layout='wide', initial_sidebar_state=st.session_state.sidebar_state)
+st.set_page_config(page_title='E-Commerce Recsys', layout='wide', initial_sidebar_state='expanded')
 # endregion streamlit-config
 
 # region load_dbs
@@ -121,6 +118,13 @@ def view(product_id, df):
     
     if 'product' in st.session_state and st.session_state.product != '' and \
         'page' in st.session_state and st.session_state.page == 'view':
+        
+        if st.button('Back to Search', key='back_tab1'):
+            del st.session_state['product']
+            st.session_state.popped=True
+            st.session_state.page = 'search'
+            st.experimental_rerun()
+        
         tab1, tab2 = st.tabs(['Product', 'Chat with Reviews'])
         
         with tab1:
@@ -170,23 +174,9 @@ def view(product_id, df):
                 info_column.write(f'Date: {date}')
                 info_column.write(f'Rating: {rating} / 5')
                 info_column.write(f'Num People who Found this Review Helpful: {numPeopleFoundHelpful}')
-
-            if st.button('Back', key='back_tab1'):
-                del st.session_state['product']
-                st.session_state.popped=True
-                st.session_state.page = 'search'
-                st.session_state.sidebar_state = 'expanded'
-                st.experimental_rerun()
                 
         with tab2:
 
-            if st.button('Back', key='back_tab2'):
-                del st.session_state['product']
-                st.session_state.popped=True
-                st.session_state.page = 'search'
-                st.session_state.sidebar_state = 'expanded'
-                st.experimental_rerun()
-            
             st.title("Reviews Chat")
             user_input = st.text_input("Ask a question:")
             if user_input:
@@ -199,16 +189,34 @@ def set_viewed_product(product):
     '''This is called when a user clicks on a product to view it'''
     st.session_state.product = product.id
     st.session_state.page = 'view'
-    st.session_state.sidebar_state = 'collapsed'
     st.experimental_rerun()
 
+# CSS
+st.markdown("""
+        <style>
+               .block-container {
+                    padding-top: 3rem;
+                    padding-bottom: 0rem;
+                }
+        </style>
+        """, unsafe_allow_html=True)
+
+def header(header_text):
+    st.markdown(f'<p style="font-size:42px;font-weight:bold;font-family:sans-serif;color:#e99d4d;">{header_text}</p>', unsafe_allow_html=True)
+def subheader(header_text):
+    st.markdown(f'<p style="font-size:18px;font-family:sans-serif;color:#50fa7bff;">{header_text}</p>', unsafe_allow_html=True)
+def header(header_text):
+    st.markdown(f'<p style="font-size:42px;font-weight:bold;font-family:sans-serif;color:#e99d4d;">{header_text}</p>', unsafe_allow_html=True)
+
 # HOME PAGE (display hybrid search results)
-def view_products(df, products_per_row=3):
+def view_products(df, products_per_row=4):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'product' not in st.session_state and st.session_state.page == 'search':
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
-            st.header('E-Commerce Semantic Consensus')
-            st.caption('Tabular + Semantic Search on Product Reviews with Pinecone & Cohere')
+            header('E-Commerce Recommendation System')
+            subheader('Tabular + Semantic Search on Product Reviews with Pinecone & cohere.rerank()')
+            st.caption('Enter a query and hover over the :grey_question: icon to see relevant reviews')
+            st.markdown("""---""")
             
             num_rows = min(10, int(np.ceil(len(df) / products_per_row)))
             
@@ -223,27 +231,32 @@ def view_products(df, products_per_row=3):
                     
                     container = column.container()
                     
+                    if 'query_for_sorting' in st.session_state and st.session_state.query_for_sorting != '' and 'asin_topreview_dict' in st.session_state:
+                        tooltip = f'**Most relevant review:** ({round(product[1]["cohere_score"]*100,2)} similarity) \n\n{st.session_state.asin_topreview_dict[product[1]["asin"]]}'
+                    else:
+                        tooltip = 'Enter a query to see relevant reviews here'
                     title_suffix = '...' if len(product[1]["true_title"]) > 25 else ''
                     try:
-                        container.markdown(f'<p style="font-size: 15px;">{"{:.25}".format(product[1]["true_title"]) + title_suffix}</p>', unsafe_allow_html=True, 
-                                           help=f'* **Price:** {product[1]["price"]}\n* **Price:** {product[1]["price"]}')
+                        container.markdown(f'**<p style="font-size: 17px;">{"{:.25}".format(product[1]["true_title"]) + title_suffix}</p>**', unsafe_allow_html=True)
                     except:
-                        container.write(f'**{product[1]["true_title"]}**')
-                    
+                        container.write(f'**{product[1]["true_title"]}**')                    
+                    container.markdown(f'{product[1]["rating"]} :star: ({product[1]["num_reviews"]:,} ratings)',
+                                       help=tooltip)
+
                     container.image(f'./thumbnails/{product[1]["asin"]}.jpg', use_column_width='always')
                     
                     button_key = f"view_{product[1]['id']}"
                     if container.button('View', key=button_key, use_container_width=True):
                         set_viewed_product(product=product[1])
                     
+                    gpu_model = product[1]["gpu_model"].replace(product[1]["gpu_manufacturer"], '').strip()
                     gpu_suffix = '...' if len(product[1]["gpu_model"]) > 20 else ''
+                    cpu_model = product[1]["cpu_model"].replace(product[1]["cpu_manufacturer"], '').strip()
+                    cpu_suffix = '...' if len(product[1]["cpu_model"]) > 20 else ''
                     container.markdown((f'* **Price:** ${product[1]["price"]}\n'
-                                        f'* **Stars:** {product[1]["rating"]} ({product[1]["num_reviews"]} reviews)\n'
-                                        f'* **CPU:** {product[1]["cpu_manufacturer"]}\n'
-                                        f'* **GPU:** {product[1]["gpu_manufacturer"]}\n'
-                                        f'* **GPU Mod:** {"{:.20}".format(product[1]["gpu_model"]) + gpu_suffix}\n'
-                                        f'* **Released:** {product[1]["date_first_available"]}\n'
-                                        
+                                        f'* **CPU:** {product[1]["cpu_manufacturer"]} ({"{:.20}".format(cpu_model) + cpu_suffix})\n'
+                                        f'* **GPU:** {product[1]["gpu_manufacturer"]} ({"{:.20}".format(gpu_model) + gpu_suffix})\n'
+                                        f'* **Release Date:** {product[1]["date_first_available"]}\n'
                                         ), unsafe_allow_html=True
                                        )
                     
@@ -271,6 +284,9 @@ def update_query_and_sort_results():
     if 'query_embedding' in st.session_state and st.session_state.query_embedding \
         and 'filtered_asins' in st.session_state and st.session_state.filtered_asins:# \
         
+        if 'asin_topreview_dict' in st.session_state:
+            del st.session_state.asin_topreview_dict
+        
         # get most similar **REVIEWS**
         results = pinecone_index.query(st.session_state.query_embedding, 
                                         filter={
@@ -286,7 +302,7 @@ def update_query_and_sort_results():
         filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
         filtered_reviews_df['similarities'] = scores
         
-        n = 80
+        n = 78
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
 
         documents = filtered_reviews_df.review_text.tolist()
@@ -308,9 +324,12 @@ def update_query_and_sort_results():
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
         filtered_reviews_df = filtered_reviews_df.head(n*4)
         rank_dict = dict(zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1)))
+        cohere_score_dict = dict(zip(filtered_reviews_df.asin, filtered_reviews_df.cohere_score))
 
         filtered_asins = filtered_reviews_df.asin.tolist()
         st.session_state.filtered_asins = filtered_asins
+        
+        st.session_state.asin_topreview_dict = dict(zip(filtered_reviews_df.asin, filtered_reviews_df.review_text))
         
         # convert from reviews to **PRODUCTS**
         query = f"SELECT * FROM products WHERE asin IN {tuple(filtered_asins)}"
@@ -321,6 +340,7 @@ def update_query_and_sort_results():
         filtered_products_df = pd.DataFrame(result_set, columns=columns)
         
         filtered_products_df['similarities'] = filtered_products_df['asin'].map(dict(rank_dict))
+        filtered_products_df['cohere_score'] = filtered_products_df['asin'].map(dict(cohere_score_dict))
         # filtered_products_df.sort_values('similarities', inplace=True)      
         
         # first sort 
@@ -372,6 +392,7 @@ def recsys():
             result_set = client.fetchall()
             columns = [column[0] for column in client.description]
             filtered_products_df = pd.DataFrame(result_set, columns=columns)
+            filtered_products_df.sort_values('num_reviews', ascending=False, inplace=True)
             st.session_state.filtered_products_df = filtered_products_df
             
             filtered_asins = filtered_products_df.asin.tolist()
