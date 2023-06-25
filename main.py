@@ -291,7 +291,7 @@ def update_query_and_sort_results():
         results = pinecone_index.query(st.session_state.query_embedding, 
                                         filter={
                                             "asin": {"$in": st.session_state.filtered_asins},
-                                            "n_tokens": {"$gt": 7},
+                                            "n_tokens": {"$gt": 10},
                                             "rating": {"$gte": 3}
                                         },
                                         top_k=750,
@@ -341,12 +341,8 @@ def update_query_and_sort_results():
         
         filtered_products_df['similarities'] = filtered_products_df['asin'].map(dict(rank_dict))
         filtered_products_df['cohere_score'] = filtered_products_df['asin'].map(dict(cohere_score_dict))
-        # filtered_products_df.sort_values('similarities', inplace=True)      
         
         # first sort 
-        filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n*2) # return more since some will be removed
-        filtered_products_df = filtered_products_df[~filtered_products_df['title_text'].str.lower().str.split().str[:2].duplicated(keep='first')] # don't recommend similar products
-        # filtered_products_df = filtered_products_df.sort_values('num_reviews', ascending=False).head(n) # return desired amount (used prior to rerank implementation)
         filtered_products_df = filtered_products_df.sort_values('similarities', ascending=True).head(n) # return desired amount
         
         st.session_state.filtered_products_df = filtered_products_df
