@@ -126,7 +126,7 @@ def view(product_id, df):
         with tab1:
             image_column, info_column = st.columns(2)
             product_series = df.loc[df.id == product_id, :].squeeze()
-            image_column.image(f'./thumbnails/{product_series["asin"]}.jpg', use_column_width='auto')
+            image_column.image(f'./thumbnails/{product_series["asin"]}.jpg', use_column_width='always')
             
             # print(product_id, product_series["asin"])
             info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
@@ -203,7 +203,7 @@ def set_viewed_product(product):
     st.experimental_rerun()
 
 # HOME PAGE (display hybrid search results)
-def view_products(df, products_per_row=4):
+def view_products(df, products_per_row=3):
     '''Home page -- prior to Search button press, this just shows most popular products'''
     if 'product' not in st.session_state and st.session_state.page == 'search':
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
@@ -222,10 +222,32 @@ def view_products(df, products_per_row=4):
                 for product, column in zip(products.iterrows(), columns):# product is a tuple of (index, row)
                     
                     container = column.container()
-                    button_key = f"view_{product[1]['id']}"
-                    if container.button('View', key=button_key):
-                        set_viewed_product(product=product[1])
+                    
+                    title_suffix = '...' if len(product[1]["true_title"]) > 25 else ''
+                    try:
+                        container.markdown(f'<p style="font-size: 15px;">{"{:.25}".format(product[1]["true_title"]) + title_suffix}</p>', unsafe_allow_html=True, 
+                                           help=f'* **Price:** {product[1]["price"]}\n* **Price:** {product[1]["price"]}')
+                    except:
+                        container.write(f'**{product[1]["true_title"]}**')
+                    
                     container.image(f'./thumbnails/{product[1]["asin"]}.jpg', use_column_width='always')
+                    
+                    button_key = f"view_{product[1]['id']}"
+                    if container.button('View', key=button_key, use_container_width=True):
+                        set_viewed_product(product=product[1])
+                    
+                    gpu_suffix = '...' if len(product[1]["gpu_model"]) > 20 else ''
+                    container.markdown((f'* **Price:** ${product[1]["price"]}\n'
+                                        f'* **Stars:** {product[1]["rating"]} ({product[1]["num_reviews"]} reviews)\n'
+                                        f'* **CPU:** {product[1]["cpu_manufacturer"]}\n'
+                                        f'* **GPU:** {product[1]["gpu_manufacturer"]}\n'
+                                        f'* **GPU Mod:** {"{:.20}".format(product[1]["gpu_model"]) + gpu_suffix}\n'
+                                        f'* **Released:** {product[1]["date_first_available"]}\n'
+                                        
+                                        ), unsafe_allow_html=True
+                                       )
+                    
+                    container.divider()
             
             st.session_state.popped=True
 
