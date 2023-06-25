@@ -8,7 +8,7 @@ Chat with reviews to get unbiased product information
 
 ### Search
 ##### Natural language querying over reviews --> Unbiased user-tailored recommendations
-Ultra-relevant search results using ```pinecone.query()``` + ```cohere.rerank()```  
+Ultra-relevant search results using ```pinecone.query()``` (with metadata & namespace filters) + ```cohere.rerank()```  
 
 ### Chat
 ##### Ask questions about product specs and get feature-specific sentiments by chatting with reviews
