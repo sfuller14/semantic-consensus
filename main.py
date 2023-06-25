@@ -26,6 +26,17 @@ PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
 PINECONE_ENVIRONMENT = os.getenv('PINECONE_ENVIRONMENT')
 co = cohere.Client(COHERE_KEY)
 
+# region set_page_config
+if 'sidebar_state' not in st.session_state:
+    st.session_state.sidebar_state = 'expanded'
+
+st.set_page_config(
+    page_title='Ecommerce Recsys',
+    layout='wide',
+    initial_sidebar_state=st.session_state.sidebar_state
+)
+# endregion set_page_config
+
 # region load_dbs
 @st.cache_resource
 def load_sql():
@@ -165,6 +176,7 @@ def view(product_id, df):
                 del st.session_state['product']
                 st.session_state.popped=True
                 st.session_state.page = 'search'
+                st.session_state.sidebar_state = 'expanded'
                 st.experimental_rerun()
                 
         with tab2:
@@ -173,6 +185,7 @@ def view(product_id, df):
                 del st.session_state['product']
                 st.session_state.popped=True
                 st.session_state.page = 'search'
+                st.session_state.sidebar_state = 'expanded'
                 st.experimental_rerun()
             
             st.title("Reviews Chat")
@@ -188,6 +201,7 @@ def set_viewed_product(product):
     '''This is called when a user clicks on a product to view it'''
     st.session_state.product = product.id
     st.session_state.page = 'view'
+    st.session_state.sidebar_state = 'collapsed'
     st.experimental_rerun()
 
 # HOME PAGE (recommended/ranked product list based on sidebar selections and user query)
@@ -363,15 +377,16 @@ def get_all_tabular_categories(_client):
     st.session_state.distinct_operating_systems = distinct_operating_systems
     st.session_state.min_max_price_tuple = min_max_price_tuple
     
-# If no user search query, get all products
-if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
-    get_all_tabular_categories(client)
 
 # Default to search page on app open
 if 'page' not in st.session_state:
     st.session_state.page = 'search'
 
-# SIDEBAR -- submit button active on home page only
+# If no user search query, get all products
+if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
+    get_all_tabular_categories(client)
+
+# SIDEBAR -- collapse & disable submit button on product 'view' page
 with st.sidebar.form(key='filter_form'):
 
     if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
@@ -407,10 +422,10 @@ with st.sidebar.form(key='filter_form'):
         key="rating_slider"
     )
     
-    allow_click = False
+    click_disabled = False
     if 'page' in st.session_state and st.session_state.page == 'view':
-        allow_click = True
-    st.form_submit_button(label='Apply Filters', on_click=recsys, disabled=allow_click)
+        click_disabled = True
+    st.form_submit_button(label='Apply Filters', on_click=recsys, disabled=click_disabled)
 
 # HOME/SEARCH PAGE
 if st.session_state.page == 'search' and ('product' not in st.session_state):
