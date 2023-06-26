@@ -74,7 +74,7 @@ The name "Commercial Consensus" embodies the core value proposition of our platf
 Experience the future of e-commerce with Commercial Consensus. [Discover a new, intelligent way to navigate online shopping platforms.](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com). Hosted on AWS.
 
 ## Narrated Demo:
-**NOTE** - video & GIF were filmed before final optimized search process was implemented. Please refer to screenshots or, better yet, try out the app!  
+**NOTE** - video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but please refer to screenshots or, better yet, try out the app!  
 
 https://youtu.be/5KyWZLdwDzo
 
