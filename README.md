@@ -61,7 +61,7 @@ Our platform features a chat interface that leverages the power of retrieval-aug
 <p align="center" style="font-size:10px;">Targeted retrieval + controlled generation using both aggregated reviews and product specs.</p>
 
 ---
-## Technology
+## Libraries
 
 Commercial Consensus is built using a suite of cutting-edge technologies. Pinecone, a vector database, enables efficient vector similarity search over large volumes of data. Cohere's reranking capabilities are utilized heavily to enhance the relevance of search results, while OpenAI's language model provides sophisticated natural language generation capabilities. This combination of technologies transforms the way we access and interpret e-commerce data.
 
