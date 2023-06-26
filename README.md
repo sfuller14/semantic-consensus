@@ -1,4 +1,4 @@
-# Commercial Consensus: Revolutionizing E-Commerce with Intelligent Semantic Search
+# Commercial Consensus
 
 Pinecone/Devpost Hackathon June 2023  
 Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
