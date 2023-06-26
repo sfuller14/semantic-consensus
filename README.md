@@ -16,8 +16,8 @@ Traditional e-commerce recommendation systems, such as collaborative filtering a
 <p align="center" style="font-size:10px;">Example of inconsistent data availability for two products in the same category:</p>
 
 <p float="left">
-  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/43f1c875-05bd-419f-9bbe-1e005dbad521" width="500" />
-  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/1d0f548d-4f87-409b-bae3-408c51bcc7a1" width="500" /> 
+  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/43f1c875-05bd-419f-9bbe-1e005dbad521" width="450" />
+  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/1d0f548d-4f87-409b-bae3-408c51bcc7a1" width="450" /> 
 </p>
 
 <p align="center" style="font-size:10px;">Missing data across our full dataset:</p>
