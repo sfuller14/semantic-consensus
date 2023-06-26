@@ -29,7 +29,7 @@ co = cohere.Client(COHERE_KEY)
 # endregion API-keys
 
 # region streamlit-config
-st.set_page_config(page_title='E-Commerce Recsys', layout='wide', initial_sidebar_state='expanded')
+st.set_page_config(page_title='Recsys', layout='wide', initial_sidebar_state='expanded', page_icon="computer")
 # endregion streamlit-config
 
 # region load_dbs
@@ -133,25 +133,34 @@ def view(product_id, df):
             image_column.image(f'./thumbnails/{product_series["asin"]}.jpg', use_column_width='always')
             
             # print(product_id, product_series["asin"])
-            info_column.write(f'**PRODUCT**: {product_series["title_text"]}')
-            info_column.write(f'**CATEGORY**: {product_series["category"]}')
-            info_column.write(f'**OS**: {product_series["operating_system"]}')
-            info_column.write(f'**BRAND**: {product_series["brand"]}')
-            info_column.write(f'**MODEL**: {product_series["model_name"]}')
-            info_column.write(f'**SERIES**: {product_series["series"]}')
-            info_column.write(f'**RAM**: {product_series["ram"]}')
-            info_column.write(f'**STORAGE**: {product_series["storage"]}')
-            info_column.write(f'**PRICE**: {product_series["price"]}')
-            info_column.write(f'**RATING**: {product_series["rating"]}')
-            info_column.write(f'**url**: {product_series["url"]}')
-            info_column.write(f'**PRODUCT DESCRIPTION**: {product_series["seller_text"]}')
+            info_column.write(f'''
+                              * **PRODUCT**:    {product_series["title_text"]}
+                              * **PRICE**:    ${product_series["price"]}
+                              * **RATING**:    {product_series["rating"]}
+                              * **CATEGORY**:    {product_series["category"]}
+                              * **OS**:    {product_series["operating_system"]}
+                              * **BRAND**:    {product_series["brand"]}
+                              * **SERIES**:    {product_series["series"]}
+                              * **RAM**:    {product_series["ram"]}
+                              * **STORAGE**:    {product_series["storage"]}
+                              * **CPU MANUFACTURER**:    {product_series["cpu_manufacturer"]}
+                              * **CPU MODEL**:    {product_series["cpu_model"]}
+                              * **GPU MANUFACTURER**:    {product_series["gpu_manufacturer"]}
+                              * **GPU MODEL**:    {product_series["gpu_model"]}
+                              * **RELEASE DATE**:    {product_series["date_first_available"]}
+                              * **url**:    {product_series["url"]}
+                              ''')
+            
+            expdr = info_column.expander('Product Description from Seller')
+            expdr.write(f'**PRODUCT DESCRIPTION**: {product_series["seller_text"]}')
+            
             if 'query_embedding' in st.session_state:
                 asin = product_series['asin']
                 
                 results = pinecone_index.query(st.session_state.query_embedding, 
                                                 filter={
                                                     "asin": {"$eq": asin},
-                                                    "n_tokens": {"$gt": 7}
+                                                    "n_tokens": {"$gt": 12}
                                                 },
                                                 top_k=1,
                                                 namespace='reviews', 
@@ -191,7 +200,7 @@ def set_viewed_product(product):
     st.session_state.page = 'view'
     st.experimental_rerun()
 
-# CSS
+# region CSS
 st.markdown("""
         <style>
                .block-container {
@@ -202,11 +211,10 @@ st.markdown("""
         """, unsafe_allow_html=True)
 
 def header(header_text):
-    st.markdown(f'<p style="font-size:42px;font-weight:bold;font-family:sans-serif;color:#e99d4d;">{header_text}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="font-size:42px;font-weight:bold;font-family:sans-serif;color:#ffb86c;">{header_text}</p>', unsafe_allow_html=True)
 def subheader(header_text):
     st.markdown(f'<p style="font-size:18px;font-family:sans-serif;color:#50fa7bff;">{header_text}</p>', unsafe_allow_html=True)
-def header(header_text):
-    st.markdown(f'<p style="font-size:42px;font-weight:bold;font-family:sans-serif;color:#e99d4d;">{header_text}</p>', unsafe_allow_html=True)
+# endregion CSS
 
 # HOME PAGE (display hybrid search results)
 def view_products(df, products_per_row=4):
@@ -215,7 +223,7 @@ def view_products(df, products_per_row=4):
         if (st.session_state.from_reload) or ('popped' not in st.session_state or st.session_state.popped==False):
             header('E-Commerce Recommendation System')
             subheader('Tabular + Semantic Search on Product Reviews with Pinecone & cohere.rerank()')
-            st.caption('Enter a query and hover over the :grey_question: icon to see relevant reviews')
+            st.markdown(f'[![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/sfuller14/semantic-consensus/)')
             st.markdown("""---""")
             
             num_rows = min(10, int(np.ceil(len(df) / products_per_row)))
@@ -411,6 +419,8 @@ def get_all_tabular_categories(_client):
     distinct_operating_systems = _client.fetchall()
     _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 20''')
     min_max_price_tuple = _client.fetchone()
+    _client.execute('''SELECT min(date_first_available_dt), max(date_first_available_dt) FROM products WHERE num_reviews > 20''')
+    min_max_date_tuple = _client.fetchone()
     
     # Flatten the list of tuples
     distinct_categories = [item[0] for item in distinct_categories]
@@ -421,6 +431,7 @@ def get_all_tabular_categories(_client):
     st.session_state.distinct_brands = distinct_brands
     st.session_state.distinct_operating_systems = distinct_operating_systems
     st.session_state.min_max_price_tuple = min_max_price_tuple
+    st.session_state.min_max_date_tuple = min_max_date_tuple
 # endregion functions
 
 # region front-end
@@ -432,9 +443,17 @@ if 'page' not in st.session_state:
 if ('query_for_sorting' not in st.session_state) or st.session_state.query_for_sorting == '':
     get_all_tabular_categories(client)
 
-# SIDEBAR -- collapse & disable submit button on product 'view' page
+# SIDEBAR -- disable submit button on product 'view' page
+with st.sidebar:
+    with st.expander("How to Use:", expanded=True):
+        st.markdown('''* Enter a query and hover over the :grey_question: icon to see relevant reviews\n* View an item to chat with reviews and product specifications\n\n''')
+    st.write('\n\n\n')
+    
 with st.sidebar.form(key='filter_form'):
 
+    st.markdown('# Filter Products')
+    st.markdown('\n\n\n\n')
+    
     click_disabled = False
     if 'page' in st.session_state and st.session_state.page == 'view':
         click_disabled = True
@@ -448,27 +467,23 @@ with st.sidebar.form(key='filter_form'):
         if 'distinct_categories' not in st.session_state:
             get_all_tabular_categories(client)
         category_multi_selection = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.distinct_categories, key="category_multi_selection", disabled=click_disabled)
-        with st.expander("Computer Brands:"):
-            brand_multi_selection = st.multiselect('Select Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection", disabled=click_disabled)
         os_multi_selection = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.distinct_operating_systems, key="os_multi_selection", disabled=click_disabled)
     else:
         category_multi_selection = st.multiselect('Product Category:', st.session_state.distinct_categories, default=st.session_state.category_multi_selection, key="category_multi_selection", disabled=click_disabled)
-        with st.expander("Computer Brands:"):
-            brand_multi_selection = st.multiselect('Select Brands:', st.session_state.distinct_brands, default=st.session_state.brand_multi_selection, key="brand_multi_selection", disabled=click_disabled)
         os_multi_selection = st.multiselect('Operating Systems:', st.session_state.distinct_operating_systems, default=st.session_state.os_multi_selection, key="os_multi_selection", disabled=click_disabled)
         
 
     price_slider = st.slider(
-        'Select a price range',
+        'Price range',
         min_value=0.0, 
-        max_value=6000.00,
+        max_value=st.session_state.min_max_price_tuple[1],
         value=(st.session_state.min_max_price_tuple[0], st.session_state.min_max_price_tuple[1]),
         key="price_slider",
         disabled=click_disabled
     )
 
     rating_slider = st.slider(
-        'Select range for ratings (1-5)',
+        'Range for ratings (1-5)',
         min_value=1, 
         max_value=5,
         value=(1,5),
@@ -476,7 +491,24 @@ with st.sidebar.form(key='filter_form'):
         disabled=click_disabled
     )
     
-    st.form_submit_button(label='Apply Filters', on_click=recsys, disabled=click_disabled)
+    with st.expander("More filters:"):
+        if ('brand_multi_selection' not in st.session_state) or (not st.session_state.brand_multi_selection):
+            brand_multi_selection = st.multiselect('Brands:', st.session_state.distinct_brands, default=st.session_state.distinct_brands, key="brand_multi_selection", disabled=click_disabled)
+        else:
+            brand_multi_selection = st.multiselect('Brands:', st.session_state.distinct_brands, default=st.session_state.brand_multi_selection, key="brand_multi_selection", disabled=click_disabled)
+    
+        st.markdown('\n\n\n\n')
+        date_slider = st.slider(
+            'Release date:',
+            min_value=st.session_state.min_max_date_tuple[0], 
+            max_value=st.session_state.min_max_date_tuple[1],
+            value=(st.session_state.min_max_date_tuple[0], st.session_state.min_max_date_tuple[1]),
+            key="date_slider",
+            disabled=click_disabled
+        )
+    
+    st.markdown('\n\n\n')
+    st.form_submit_button(label='Search', on_click=recsys, disabled=click_disabled)
 
 # HOME/SEARCH PAGE
 if st.session_state.page == 'search' and ('product' not in st.session_state):
