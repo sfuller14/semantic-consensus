@@ -50,7 +50,7 @@ Commercial Consensus offers an ultra-relevant search experience, powered by `pin
 ---
 ### Intelligent Chat Interface
 
-Our platform features a chat interface that leverages the power of retrieval-augmented generation (RAG). By utilizing a custom `pinecone.query()` + `cohere.rerank()` + `openai.ChatCompletions()` chain, users can ask questions and receive detailed responses based on both product specifications and relevant reviews. This feature not only provides valuable insights to users but also serves as a tool for sellers performing market research.
+Our platform features a chat interface that leverages the power of quality-controlled retrieval-augmented generation (RAG). By utilizing a custom `pinecone.query()` + `cohere.rerank()` + `openai.ChatCompletions()` chain, users receive detailed responses based on both product specifications and relevant reviews. This feature not only provides valuable insights to potential but also serves as a tool for sellers performing market research.
 
 ---
 ![Chat Example](https://github.com/sfuller14/semantic-consensus/assets/54780092/ddf82542-d5cf-4d92-ab88-25e50a8831ff)
@@ -63,7 +63,7 @@ Our platform features a chat interface that leverages the power of retrieval-aug
 ---
 ## Libraries
 
-Commercial Consensus is built using a suite of cutting-edge technologies. Pinecone, a vector database, enables efficient vector similarity search over large volumes of data. Cohere's reranking capabilities are utilized heavily to enhance the relevance of search results, while OpenAI's language model provides sophisticated natural language generation capabilities. This combination of technologies transforms the way we access and interpret e-commerce data.
+Commercial Consensus is built using a suite of cutting-edge technologies. Pinecone enables efficient vector similarity search over large volumes of data organized by namespace (product embeddings, word embeddings, and combined) and stored with metadata. Cohere's reranking capabilities are utilized heavily to enhance the relevance of the inital query results and ensure high quality documents are retrieved for GPT-4 in the Chat portion. A customized prompt (as well as providing product specs along with product reviews) limits hallucination and maximizes response relevancy by OpenAI's GPT-4 model.  Streamlit enabled a backend dev to throw a passable front-end on the system.
 
 ## Commercial Consensus
 
@@ -73,6 +73,14 @@ The name "Commercial Consensus" embodies the core value proposition of our platf
 
 Experience the future of e-commerce with Commercial Consensus. [Discover a new, intelligent way to navigate online shopping platforms.](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com). Hosted on AWS.
 
+## Narrated Demo:
+**NOTE** - video & GIF were filmed before final optimized search process was implemented. Please refer to screenshots or, better yet, try out the app!  
+
+https://youtu.be/5KyWZLdwDzo
+
+## GIF:
+**NOTE** - video & GIF were filmed before final optimized search process was implemented. Please refer to screenshots or, better yet, try out the app!  
+
+https://github.com/sfuller14/semantic-consensus/assets/54780092/4d7962a7-9db2-480c-9284-988feb9cdc1a
+
 [^1]: Source + validation of project: <img width="340" alt="Screenshot 2023-06-20 at 8 18 45 AM" src="https://github.com/sfuller14/semantic-consensus/assets/54780092/01e6ebdf-1dbb-41ad-b9dd-09829ad495dc">
-
-
