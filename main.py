@@ -29,7 +29,7 @@ co = cohere.Client(COHERE_KEY)
 # endregion API-keys
 
 # region streamlit-config
-st.set_page_config(page_title='Recsys', layout='wide', initial_sidebar_state='expanded', page_icon="computer")
+st.set_page_config(page_title='Recsys', layout='wide', page_icon="computer")#initial_sidebar_state='expanded', 
 # endregion streamlit-config
 
 # region load_dbs
@@ -82,10 +82,14 @@ def stream_response(user_input, asin):
 
  
     # --> Combine prompt with similar docs
-    context = f"**USER QUESTION:**\n{user_input}\n\n**REVIEWS:**\n"
+    context = f"**USER QUESTION:**\n{user_input}\n\n**PRODUCT DESCRIPTION:**\n{st.session_state.asins_titletext_dict[reranked_results[0]['metadata']['asin']]}\n**REVIEWS:**\n"
 
-    for doc in reranked_results:#[0]['metadata']:
+    for doc in reranked_results:
         context += f"{doc['metadata']['url']}: {doc['metadata']['review_text']}\n"
+
+    # Don't exceed 8000 tokens
+    encoding = tiktoken.encoding_for_model('gpt-4')
+    context = encoding.decode(encoding.encode(context)[:7750]) if len(encoding.encode(context)) >= 7750 else context
         
     context += "\n**RESPONSE:**\n"
     system_prompt = f"""You are a helpful assistant that reads Amazon reviews of a computer hardware product in order to answer questions for Amazon users. 
@@ -94,9 +98,9 @@ def stream_response(user_input, asin):
     If the question is about computers generally, ignore the reviews and provide a general response. 
     If product-specific, perform the following steps:  
     
-    1) Read the following reviews and determine which portions of the reviews are relevant to the user's question
-    2) In a markdown bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the URL of the review): * "quote from review" (full url of review)
-    3) Finally, provide a markdown paragraph response to the user's question based on the reviews
+    1) Read the following product description and reviews and determine which portions of the reviews are relevant to the user's question
+    2) In a markdown bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the FULL URL of the review): * "quote from review" (**FULL url*** of review)
+    3) Finally, in a short paragraph, respond to the user's question based on the reviews. You may refer to the product description as well if appropriate, but focus on the reviews.
 
     {context}
     """
@@ -310,10 +314,14 @@ def update_query_and_sort_results():
         filtered_reviews_df = pd.DataFrame.from_records([r['metadata'] for r in results['_data_store']['matches']])
         filtered_reviews_df['similarities'] = scores
         
+        # Concat review text and product description text for combo-reranking, if desired
+        # filtered_reviews_df['seller_text'] = filtered_reviews_df['asin'].map(st.session_state.asins_sellertext_dict)
+        # filtered_reviews_df['combined_text'] = '**PRODUCT REVIEW:**\n' + filtered_reviews_df['review_text'] + '\n**PRODUCT DESCRIPTION:**\n' + filtered_reviews_df['seller_text']
+        
         n = 78
         filtered_reviews_df.sort_values('similarities', ascending=False, inplace=True)
 
-        documents = filtered_reviews_df.review_text.tolist()
+        documents = filtered_reviews_df.review_text.tolist() # use filtered_reviews_df.combined_text if combo-reranking
 
         rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=n*4, model="rerank-multilingual-v2.0")
         cohere_ranks = [i for i in range(0, len(rerank_hits.results))]
@@ -330,7 +338,7 @@ def update_query_and_sort_results():
 
         # drop duplicates in filtered_reviews_df (on asin), keep first
         filtered_reviews_df.drop_duplicates(subset=['asin'], keep='first', inplace=True)
-        filtered_reviews_df = filtered_reviews_df.head(n*4)
+        filtered_reviews_df = filtered_reviews_df.head(n)
         rank_dict = dict(zip(filtered_reviews_df.asin, range(1, len(filtered_reviews_df)+1)))
         cohere_score_dict = dict(zip(filtered_reviews_df.asin, filtered_reviews_df.cohere_score))
 
@@ -356,11 +364,11 @@ def update_query_and_sort_results():
         st.session_state.filtered_products_df = filtered_products_df
 
 def recsys():
-    if (st.session_state.get('FormSubmitter:filter_form-Apply Filters', False)) or (st.session_state.get('filtered_products_df', None) is None):
+    if (st.session_state.get('FormSubmitter:filter_form-Search', False)) or (st.session_state.get('filtered_products_df', None) is None):
         with st.spinner('Searching...'):
             time.sleep(1)
             
-            if ('FormSubmitter:filter_form-Apply Filters' in st.session_state and st.session_state['FormSubmitter:filter_form-Apply Filters']) or \
+            if ('FormSubmitter:filter_form-Search' in st.session_state and st.session_state['FormSubmitter:filter_form-Search']) or \
                 ('from_reload' in st.session_state and st.session_state.from_reload):
 
                 # Get user selections for tabular filters
@@ -402,6 +410,8 @@ def recsys():
             filtered_asins = filtered_products_df.asin.tolist()
             # Note: filtered_asins is only used in update_query_and_sort_results
             st.session_state.filtered_asins = filtered_asins
+            st.session_state.asins_sellertext_dict = dict(zip(filtered_products_df.asin, filtered_products_df.seller_text))
+            st.session_state.asins_titletext_dict = dict(zip(filtered_products_df.asin, filtered_products_df.title_text))
         
         update_query_and_sort_results()
         
