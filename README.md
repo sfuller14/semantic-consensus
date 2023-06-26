@@ -123,4 +123,4 @@ This occurs at three points in our application:
      * The top 100 reviews are returned using pinecone.query()
      * co.rerank is used to get the top 12
      * The user query, product's title (which for Amazon contains a hodgepodge of specs) + those reviews + the system prompt are passed to GPT-4 (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
-       * This approaches ensures high quality results of the RAG process
+       * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
