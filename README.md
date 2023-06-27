@@ -60,7 +60,7 @@ Commercial Consensus offers an ultra-personalized and efficient search experienc
 ---
 ### Intelligent Chat Interface
 
-Our platform features a chat interface that leverages the power of quality-controlled retrieval-augmented generation (RAG). By utilizing a custom `pinecone.query()` + `cohere.rerank()` + `openai.ChatCompletions()` chain, users receive detailed responses based on both product specifications and relevant reviews. This feature not only provides valuable insights to potential buyers but also serves as a tool for sellers performing market research.
+Our platform features a chat interface that leverages the power of quality-controlled retrieval-augmented generation (RAG). By utilizing a custom `pinecone.query()` + `cohere.rerank()` + `openai.ChatCompletions()` chain, users receive detailed responses based on both product specifications and relevant reviews. Customers find the right product easier & return fewer items -- a win for all parties. This feature not only provides valuable insights to potential buyers but also serves as a tool for sellers performing market research.
 
 ---
 
