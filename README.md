@@ -132,6 +132,8 @@ __A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()``
 
 ![Screenshot 2023-06-26 at 9 37 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/3f564654-ff9e-4d95-ae0a-1c187f4d6658)
 
+In the above, notice that both reviews mentioning BSOD in the re-ranked results go on to say that they resolved it. 
+
 ![Screenshot 2023-06-26 at 11 08 17 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/4e209d2a-1749-4312-bd98-f00e757522c0)
 
 
