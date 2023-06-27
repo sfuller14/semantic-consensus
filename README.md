@@ -126,7 +126,7 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
        * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
 
 
-While ```pinecone.query()``` without re-ranking is generally sufficient, certain query formations (like negation) can lead to undesirable results. 
+While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like negation) can lead to undesirable results. 
 __A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()```+```cohere.rerank()```:__
 Note that
 ![Screenshot 2023-06-26 at 9 37 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/3f564654-ff9e-4d95-ae0a-1c187f4d6658)
