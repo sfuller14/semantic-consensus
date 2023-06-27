@@ -10,7 +10,7 @@ Commercial Consensus is an intelligent search platform designed to revolutionize
 ## The Problem
 
 Traditional e-commerce recommendation systems, such as collaborative filtering and graph-based methods, rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
-
+❔
 ---
 
 <p align="center" style="font-size:10px;">Example of inconsistent data availability for two products in the same category:</p>
@@ -108,19 +108,19 @@ Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank
   <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/04641b8a-5745-4fe5-bd04-d18a8db7f353" width="350" />
 </p>
 
-We found the endpoint to be highly performant, both in terms of quality and response time. It handles up to 1,000 documents in a single call _passed as plain text, not embeddings_ and returns the re-ranked results almost instantly.  
-#### Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()  
-This occurs at three points in our application:
-* When the user enters a query and presses Search
-     * The top 750 reviews are returned from the metadata-filtered namespace in pinecone
-     * These are passed to co.rerank() which returns the top 78x4
-     * Duplicate products are removed from the re-ranked results and the top 78 are returned to the 'Search' screen as recommendations
-     * re-rank's score * 100 is displayed as similarity in the tooltip with the closest review (though this is probably misleading)
- * When a user clicks View on a product
-     * The top 50 reviews are returned using pinecone.query() (which is using cosine sim since the embeddings are text-ada-002)
-     * co.rerank is used to get the top 5
- * When a user enters a question in the Chat tab
-     * The top 100 reviews are returned using pinecone.query()
-     * co.rerank is used to get the top 12
-     * The user query, product's title (which for Amazon contains a hodgepodge of specs) + those reviews + the system prompt are passed to GPT-4 (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
+We found the endpoint to be highly performant, both in terms of quality and response time. It handles up to 1,000 documents (passed as raw text, not embeddings) in a single call, and returns the re-ranked results almost instantly.   
+
+__Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
+1) When the user enters a query and presses 'Search'
+     * ```pinecone.query()``` :arrow_right: Top 750 most similar reviews to the query (embedding) :arrow_lower_left:
+     * ```co.rerank()``` :arrow_right: Top 320 most similar to the query (text) :arrow_lower_left:
+     * Duplicate products are removed & Top 80 :arrow_right: 'Search' screen as displayed recommendations
+       * __EVEN THOUGH THIS POTENTIALLY CONFUSING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
+2) When a user clicks View on a product
+     * ```pinecone.query()``` :arrow_right: Top 50 most similar reviews to the query (embedding) for selected product
+     * ```co.rerank()``` :arrow_right: Top 5 most similar to the query (text) 
+3) When a user enters a question in the Chat tab
+     * ```pinecone.query()``` :arrow_right: Top 100 most similar reviews to the question (embedding) :arrow_lower_left:
+     * ```co.rerank()``` :arrow_right: Top 12 most similar to the question (text) :arrow_lower_left:
+     * The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
        * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
