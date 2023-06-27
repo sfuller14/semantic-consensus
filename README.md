@@ -10,7 +10,7 @@ Commercial Consensus is an intelligent search platform designed to revolutionize
 ## The Problem
 
 Traditional e-commerce recommendation systems, such as collaborative filtering and graph-based methods, rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
-❔
+
 ---
 
 <p align="center" style="font-size:10px;">Example of inconsistent data availability for two products in the same category:</p>
