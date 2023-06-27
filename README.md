@@ -115,7 +115,7 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
      * ```pinecone.query()``` :arrow_right: Top 750 most similar reviews to the query (embedding) :arrow_lower_left:
      * ```co.rerank()``` :arrow_right: Top 320 most similar to the query (text) :arrow_lower_left:
      * Duplicate products are removed & Top 80 :arrow_right: 'Search' screen as displayed recommendations
-       * __EVEN THOUGH THIS POTENTIALLY CONFUSING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
+       * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
 2) When a user clicks View on a product
      * ```pinecone.query()``` :arrow_right: Top 50 most similar reviews to the query (embedding) for selected product
      * ```co.rerank()``` :arrow_right: Top 5 most similar to the query (text) 
