@@ -117,10 +117,10 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
      * Duplicate products are removed & Top 80 :arrow_right: 'Search' screen as displayed recommendations
        * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
 2) When a user clicks View on a product
-     * ```pinecone.query()``` :arrow_right: Top 50 most similar reviews to the query (embedding) for selected product
+     * ```pinecone.query()``` :arrow_right: Top 50 most similar reviews to the query (embedding) for selected product :arrow_lower_left: 
      * ```co.rerank()``` :arrow_right: Top 5 most similar to the query (text) 
 3) When a user enters a question in the Chat tab
-     * ```pinecone.query()``` :arrow_right: Top 100 most similar reviews to the question (embedding) :arrow_lower_left:
+     * ```pinecone.query()``` :arrow_right: Top 100 most similar reviews to the question (embedding) :arrow_lower_left: 
      * ```co.rerank()``` :arrow_right: Top 12 most similar to the question (text) :arrow_lower_left:
      * The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
        * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
