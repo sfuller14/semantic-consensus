@@ -126,7 +126,7 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
        * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
 
 
-While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like negation) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews.
+While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like certain negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in many cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display). More testing is needed here.
 
 __A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()```+```cohere.rerank()```:__
 
@@ -136,7 +136,4 @@ In the above, notice that both reviews mentioning BSOD in the re-ranked results 
 
 ![Screenshot 2023-06-26 at 11 08 17 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/4e209d2a-1749-4312-bd98-f00e757522c0)
 
-
-
-
-       
+Note that these comparisons are not reflective of pinecone's querying performance, but of cosine similarity search on 'text-embedding-ada-002'  vs. the re-ranked equivalent.
