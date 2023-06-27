@@ -112,15 +112,28 @@ We found the endpoint to be highly performant, both in terms of quality and resp
 
 __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
 1) When the user enters a query and presses 'Search'
-     * ```pinecone.query()``` :arrow_right: Top 750 most similar reviews to the query (embedding) :arrow_lower_left:
-     * ```co.rerank()``` :arrow_right: Top 320 most similar to the query (text) :arrow_lower_left:
-     * Duplicate products are removed & Top 80 :arrow_right: 'Search' screen as displayed recommendations
+     * ```pinecone.query()``` :arrow_right: **_Top 750_** most similar reviews to the query (embedding) :arrow_lower_left:
+     * ```co.rerank()``` :arrow_right: **_Top 320 most similar to the query (text) :arrow_lower_left:
+     * Duplicate products are removed & **_Top 80_** :arrow_right: 'Search' screen as displayed recommendations
        * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
 2) When a user clicks View on a product
-     * ```pinecone.query()``` :arrow_right: Top 50 most similar reviews to the query (embedding) for selected product :arrow_lower_left: 
-     * ```co.rerank()``` :arrow_right: Top 5 most similar to the query (text) 
+     * ```pinecone.query()``` :arrow_right: **_Top 50_** most similar reviews to the query (embedding) for selected product :arrow_lower_left: 
+     * ```co.rerank()``` :arrow_right: **_Top 5_** most similar to the query (text) 
 3) When a user enters a question in the Chat tab
-     * ```pinecone.query()``` :arrow_right: Top 100 most similar reviews to the question (embedding) :arrow_lower_left: 
-     * ```co.rerank()``` :arrow_right: Top 12 most similar to the question (text) :arrow_lower_left:
+     * ```pinecone.query()``` :arrow_right: **_Top 100_** most similar reviews to the question (embedding) :arrow_lower_left: 
+     * ```co.rerank()``` :arrow_right: **_Top 12_** most similar to the question (text) :arrow_lower_left:
      * The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
        * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
+
+
+While ```pinecone.query()``` without re-ranking is generally sufficient, certain query formations (like negation) can lead to undesirable results. 
+__A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()```+```cohere.rerank()```:__
+Note that
+![Screenshot 2023-06-26 at 9 37 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/3f564654-ff9e-4d95-ae0a-1c187f4d6658)
+
+![Screenshot 2023-06-26 at 11 08 17 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/4e209d2a-1749-4312-bd98-f00e757522c0)
+
+
+
+
+       
