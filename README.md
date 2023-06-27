@@ -1,7 +1,9 @@
 # Commercial Consensus
 
-Pinecone/Devpost Hackathon June 2023  
-Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
+- Pinecone/Devpost Hackathon June 2023  
+- Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS) 
+- Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation  
+  * Youtube video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but see below screenshots or, better yet, try out the app!  
 
 ## Overview
 
@@ -85,11 +87,6 @@ The name "Commercial Consensus" embodies the core value proposition of our platf
 ## Try It Out
 
 [Experience the future of e-commerce with Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com). Hosted on AWS.
-
-## Narrated Demo:
-**NOTE** - video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but please refer to screenshots or, better yet, try out the app!  
-
-https://youtu.be/5KyWZLdwDzo
 
 ## GIF:
 **NOTE** - video & GIF were filmed before final optimized search process was implemented. Please refer to screenshots or, better yet, try out the app!  
