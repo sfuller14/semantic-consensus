@@ -113,7 +113,7 @@ We found the endpoint to be highly performant, both in terms of quality and resp
 __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
 1) When the user enters a query and presses 'Search'
      * ```pinecone.query()``` :arrow_right: **_Top 750_** most similar reviews to the query (embedding) :arrow_lower_left:
-     * ```co.rerank()``` :arrow_right: **_Top 320 most similar to the query (text) :arrow_lower_left:
+     * ```co.rerank()``` :arrow_right: **_Top 320_** most similar to the query (text) :arrow_lower_left:
      * Duplicate products are removed & **_Top 80_** :arrow_right: 'Search' screen as displayed recommendations
        * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
 2) When a user clicks View on a product
