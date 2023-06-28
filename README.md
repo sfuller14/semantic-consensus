@@ -190,7 +190,7 @@ __Product Title Example__
 
 ---
 
-While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like certain negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in many cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display). More testing is needed here.
+While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like specific negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in some cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display on the home page). __In other cases (specifically during RAG chaining), this led to significantly better output.__ More testing is needed here.
 
 __A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()```+```cohere.rerank()```:__
 
