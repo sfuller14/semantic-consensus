@@ -108,20 +108,82 @@ Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank
 We found the endpoint to be highly performant, both in terms of quality and response time. It handles up to 1,000 documents (passed as raw text, not embeddings) in a single call, and returns the re-ranked results almost instantly.   
 
 __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
-1) When the user enters a query and presses 'Search'
-     * ```pinecone.query()``` :arrow_right: **_Top 750_** most similar reviews to the query :arrow_lower_left:
-     * ```co.rerank()``` :arrow_right: **_Top 320_** most similar to the query :arrow_lower_left:
-     * Duplicate products are removed & **_Top 80_** :arrow_right: 'Search' screen as displayed recommendations
-       * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
-2) When a user clicks View on a product
-     * ```pinecone.query()``` :arrow_right: **_Top 50_** most similar reviews to the query for selected product :arrow_lower_left: 
-     * ```co.rerank()``` :arrow_right: **_Top 5_** most similar to the query 
-3) When a user enters a question in the Chat tab
-     * ```pinecone.query()``` :arrow_right: **_Top 100_** most similar reviews to the question :arrow_lower_left: 
-     * ```co.rerank()``` :arrow_right: **_Top 12_** most similar to the question :arrow_lower_left: 
-     * The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
-       * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
 
+1) When the user enters a query and presses 'Search'
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Streamlit_AWS
+    participant Pinecone
+    participant Cohere
+    participant OpenAI
+
+    Streamlit_AWS-->>User: Renders 'Search' page
+    User->>Streamlit_AWS: Makes tabular filter selections<br>Enters query<br>Press Search
+    Streamlit_AWS->>OpenAI: Query (text)
+    OpenAI-->>Streamlit_AWS: Query embedding
+    Streamlit_AWS->>Pinecone: Tabular filter selections (converted to metadata filters)<br>Query embedding
+    Pinecone-->>Streamlit_AWS: Top 750 Similar Reviews<br>(Embeddings, Text, Product Specs as metadata)
+    Streamlit_AWS->>Cohere: Top 750 Similar Reviews (Text)
+    Cohere-->>Streamlit_AWS: Re-Ranked Top 320 Similar Reviews
+    Streamlit_AWS->>Streamlit_AWS: Remove Duplicate Products & Select Top 80
+    Streamlit_AWS-->>User: Display Top 80 as Recommended Products
+```
+
+* ```pinecone.query()``` :arrow_right: **_Top 750_** most similar reviews to the query :arrow_lower_left: 
+* ```co.rerank()``` :arrow_right: **_Top 320_** most similar to the query :arrow_lower_left:  
+* Duplicate products are removed & **_Top 80_** :arrow_right: 'Search' screen as displayed recommendations
+   * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
+
+
+2) When a user clicks View on a product
+```mermaid
+sequenceDiagram
+    participant User
+    participant Streamlit_AWS
+    participant Pinecone
+    participant Cohere
+
+    Streamlit_AWS-->>User: Top 80 recommended products<br>on 'Search' page
+    User->>Streamlit_AWS: Click View on a Product
+    Streamlit_AWS->>Pinecone: Product ID (as metadata filter)<br>Query embedding
+    Pinecone-->>Streamlit_AWS: Top 50 Similar Reviews (Embeddings, Text, Product Specs as metadata)
+    Streamlit_AWS->>Cohere: Top 50 Similar Reviews (Text)
+    Cohere-->>Streamlit_AWS: Re-Ranked Top 5 Similar Reviews
+    Streamlit_AWS-->>User: Display Product Details & Top 5 Reviews<br>on 'View' page
+```
+* ```pinecone.query()``` :arrow_right: **_Top 50_** most similar reviews to the query for selected product :arrow_lower_left: 
+* ```co.rerank()``` :arrow_right: **_Top 5_** most similar to the query
+     
+3) When a user enters a question in the Chat tab
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Streamlit_AWS
+    participant Pinecone
+    participant Cohere
+    participant OpenAI
+
+    Streamlit_AWS-->>User: Display Product Details & Top 5 Reviews on 'View' page
+    User->>Streamlit_AWS: Enter Question in Chat Tab
+    Streamlit_AWS->>OpenAI: Question (text)
+    OpenAI-->>Streamlit_AWS: Question embedding
+    Streamlit_AWS->>Pinecone: Product ID (as metadata filter)<br>Question embedding
+    Pinecone-->>Streamlit_AWS: Top 100 Similar Reviews (Embeddings, Text, Product Specs as metadata)
+    Streamlit_AWS->>Cohere: Top 100 Similar Reviews (Text)
+    Cohere-->>Streamlit_AWS: Re-Ranked Top 12 Similar Reviews
+    Streamlit_AWS->>OpenAI: Question<br> +Product's Title (which on Amazon contain a concatenation of product specs)<br> + Top 12 Reviews<br> + System Prompt<br>
+    OpenAI-->>Streamlit_AWS: Chat Response
+    Streamlit_AWS-->>User: Display Chat Response
+```
+
+* ```pinecone.query()``` :arrow_right: **_Top 100_** most similar reviews to the question :arrow_lower_left: 
+* ```co.rerank()``` :arrow_right: **_Top 12_** most similar to the question :arrow_lower_left: 
+* The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
+   * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
+---
 
 While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like certain negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in many cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display). More testing is needed here.
 
