@@ -1,7 +1,8 @@
 # Commercial Consensus
 
 - Pinecone/Devpost Hackathon June 2023  
-- Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS) 
+- Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
+- [Execution flow diagrams](#execution-flow)
 - Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation  
   * Youtube video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but see below screenshots or, better yet, try out the app!  
 
@@ -108,6 +109,9 @@ Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank
 We found the endpoint to be highly performant, both in terms of quality and response time. It handles up to 1,000 documents (passed as raw text, not embeddings) in a single call, and returns the re-ranked results almost instantly.   
 
 __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
+
+### Execution Flow
+
 
 1) When the user enters a query and presses 'Search'
 
