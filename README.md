@@ -135,10 +135,7 @@ sequenceDiagram
     Streamlit_AWS-->>User: Display Top 80 as Recommended Products
 ```
 
-* ```pinecone.query()``` :arrow_right: **_Top 750_** most similar reviews to the query :arrow_lower_left: 
-* ```co.rerank()``` :arrow_right: **_Top 320_** most similar to the query :arrow_lower_left:  
-* Duplicate products are removed & **_Top 80_** :arrow_right: 'Search' screen as displayed recommendations
-   * __EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results))
+__EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results) since this is just demo app)
 
 
 2) When a user clicks View on a product
@@ -157,8 +154,6 @@ sequenceDiagram
     Cohere-->>Streamlit_AWS: Re-Ranked Top 5 Similar Reviews
     Streamlit_AWS-->>User: Display Product Details & Top 5 Reviews<br>on 'View' page
 ```
-* ```pinecone.query()``` :arrow_right: **_Top 50_** most similar reviews to the query for selected product :arrow_lower_left: 
-* ```co.rerank()``` :arrow_right: **_Top 5_** most similar to the query
      
 3) When a user enters a question in the Chat tab
 
@@ -183,10 +178,16 @@ sequenceDiagram
     Streamlit_AWS-->>User: Display Chat Response
 ```
 
-* ```pinecone.query()``` :arrow_right: **_Top 100_** most similar reviews to the question :arrow_lower_left: 
-* ```co.rerank()``` :arrow_right: **_Top 12_** most similar to the question :arrow_lower_left: 
-* The user question + product's title (which for Amazon contains a hodgepodge of specs) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded)
-   * This approach (and the system prompt) ensure high quality results of the RAG process and prevent max context window errors
+The user question + product's title (__which for Amazon contains a hodgepodge of specs__) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded): 
+
+__Product Title Example__
+
+<p float="center">
+  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/731a1206-f789-4294-ab97-07b1d36f5341)" width="450" /> 
+</p>
+
+(likely for enabling lexical search over variably-populated data fields, which we exploit here as well) 
+
 ---
 
 While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like certain negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in many cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display). More testing is needed here.
