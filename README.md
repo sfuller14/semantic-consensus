@@ -90,7 +90,8 @@ The name "Commercial Consensus" embodies the core value proposition of our platf
 
 [Experience the future of e-commerce with Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com). Hosted on AWS.
 
-## GIF:
+## GIF
+
 **NOTE** - video & GIF were filmed before final optimized search process was implemented. Please refer to screenshots or, better yet, try out the app!  
 
 https://github.com/sfuller14/semantic-consensus/assets/54780092/4d7962a7-9db2-480c-9284-988feb9cdc1a
