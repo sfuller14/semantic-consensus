@@ -4,7 +4,8 @@ Pinecone/Devpost Hackathon June 2023
 - Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
 - [Libraries & Execution flow diagrams](#execution-flow)
 - Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation  
-  * Youtube video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but see below screenshots or, better yet, try out the app!  
+  * Youtube video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but see below screenshots or, better yet, try out the app!
+ - [Inspiration & references](#inspiration-and-references) 
 
 ## Overview
 
@@ -112,85 +113,31 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
 
 ### Execution Flow
 
-
 1) When the user enters a query and presses 'Search'
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Streamlit_AWS
-    participant Pinecone
-    participant Cohere
-    participant OpenAI
+![Screenshot 2023-06-28 at 9 36 34 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/c118d859-6adc-4bbe-8ff8-bc0745ba356b)
 
-    Streamlit_AWS-->>User: Renders 'Search' page
-    User->>Streamlit_AWS: Makes tabular filter selections<br>Enters query<br>Press Search
-    Streamlit_AWS->>OpenAI: Query (text)
-    OpenAI-->>Streamlit_AWS: Query embedding
-    Streamlit_AWS->>Pinecone: Tabular filter selections (converted to metadata filters)<br>Query embedding
-    Pinecone-->>Streamlit_AWS: Top 750 Similar Reviews<br>(Embeddings, Text, Product Specs as metadata)
-    Streamlit_AWS->>Cohere: Top 750 Similar Reviews (Text)
-    Cohere-->>Streamlit_AWS: Re-Ranked Top 320 Similar Reviews
-    Streamlit_AWS->>Streamlit_AWS: Remove Duplicate Products & Select Top 80
-    Streamlit_AWS-->>User: Display Top 80 as Recommended Products
-```
-
-__EVEN THOUGH THIS IS LIKELY CONFUSING & POTENTIALLY MISLEADING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results) since this is just demo app)
-
+__EVEN THOUGH THIS IS POTENTIALLY CONFUSING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results) since this is just demo app)
 
 2) When a user clicks View on a product
-```mermaid
-sequenceDiagram
-    participant User
-    participant Streamlit_AWS
-    participant Pinecone
-    participant Cohere
 
-    Streamlit_AWS-->>User: Top 80 recommended products<br>on 'Search' page
-    User->>Streamlit_AWS: Click View on a Product
-    Streamlit_AWS->>Pinecone: Product ID (as metadata filter)<br>Query embedding
-    Pinecone-->>Streamlit_AWS: Top 50 Similar Reviews (Embeddings, Text, Product Specs as metadata)
-    Streamlit_AWS->>Cohere: Top 50 Similar Reviews (Text)
-    Cohere-->>Streamlit_AWS: Re-Ranked Top 5 Similar Reviews
-    Streamlit_AWS-->>User: Display Product Details & Top 5 Reviews<br>on 'View' page
-```
+![Screenshot 2023-06-28 at 9 37 57 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/1f7f62a4-c590-48ab-a707-666200672a06)
      
 3) When a user enters a question in the Chat tab
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Streamlit_AWS
-    participant Pinecone
-    participant Cohere
-    participant OpenAI
-
-    Streamlit_AWS-->>User: Display Product Details & Top 5 Reviews on 'View' page
-    User->>Streamlit_AWS: Enter Question in Chat Tab
-    Streamlit_AWS->>OpenAI: Question (text)
-    OpenAI-->>Streamlit_AWS: Question embedding
-    Streamlit_AWS->>Pinecone: Product ID (as metadata filter)<br>Question embedding
-    Pinecone-->>Streamlit_AWS: Top 100 Similar Reviews (Embeddings, Text, Product Specs as metadata)
-    Streamlit_AWS->>Cohere: Top 100 Similar Reviews (Text)
-    Cohere-->>Streamlit_AWS: Re-Ranked Top 12 Similar Reviews
-    Streamlit_AWS->>OpenAI: Question<br> +Product's Title (which on Amazon contain a concatenation of product specs)<br> + Top 12 Reviews<br> + System Prompt<br>
-    OpenAI-->>Streamlit_AWS: Chat Response
-    Streamlit_AWS-->>User: Display Chat Response
-```
+![Screenshot 2023-06-28 at 9 39 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/70f010d8-26f8-462c-b937-8857d3b3409f)
 
 The user question + product's title (__which for Amazon contains a hodgepodge of specs__) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded): 
 
-__Product Title Example__
+#### Product Title Example
 
-<p float="center">
-  <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/731a1206-f789-4294-ab97-07b1d36f5341)" width="450" /> 
-</p>
+![Screenshot 2023-06-28 at 8 16 23 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/a76b56a2-097e-4402-bfa7-7639baef65dd)
 
-(likely for enabling lexical search over variably-populated data fields, which we exploit here as well) 
+This is likely done for facilitating lexical search in the presence of variably-populated data fields. We're able to exploit this approach within the LLM prompt. See [the awesome examples from the pinecone documentation](#inspiration-and-references) for more on this topic in the context of querying. Combining sparse-dense search with our tabular-dense approach (and adding in reranking) could be an interesting area for further investigation. 
 
 ---
 
-While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like specific negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in some cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display on the home page). __In other cases (specifically during RAG chaining), this led to significantly better output.__ More testing is needed here.
+While ```pinecone.query()``` without re-ranking was often sufficient for simple and well-formed queries, certain query formations (like specific negation expressions) led to undesirable results. Adding re-ranking also generally appeared to show better matching on longer reviews, however in some cases this not necessarily desirable (i.e. re-ranking led to longer reviews being prioritized while a more succinct match would be preferred for display on the home page). __In other cases (specifically during RAG chaining), the longer reviews led to significantly better output.__ More testing is needed here.
 
 __A few examples of using ```pinecone.query()``` alone vs. ```pinecone.query()```+```cohere.rerank()```:__
 
@@ -201,3 +148,16 @@ In the above, notice that both reviews mentioning BSOD in the re-ranked results 
 ![Screenshot 2023-06-26 at 11 08 17 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/4e209d2a-1749-4312-bd98-f00e757522c0)
 
 Note that these comparisons are not reflective of pinecone's querying performance, but of cosine similarity search on 'text-embedding-ada-002'  vs. the re-ranked equivalent.
+
+---
+
+# Inspiration and References
+
+The materials provided by pinecone's documentation are extremely high quality. 
+
+* [This post by James Briggs](https://docs.pinecone.io/docs/ecommerce-search#hybrid-search-for-e-commerce-with-pinecone) on hybrid (sparse textual + dense image) search was the main inspiration for this project & the proposed system is largely a riff/expansion on that case study (with the main additions being tabular filtering, reranking, and LLM incorporation) 
+   * [Accompanying Youtube video](https://www.youtube.com/watch?v=AELtGhiAqio) 
+   * [Documentation on sparse-dense search in pinecone](https://docs.pinecone.io/docs/hybrid-search) 
+   * [This Youtube series on Streamlit was also very helpful](https://www.youtube.com/watch?v=lYDiSCDcxmc) 
+   * [As was this Youtube video on Metadata filtering](https://www.youtube.com/watch?v=tn_Y19oB5bs)  
+* Chat feature inspired by LangChain's [ConversationalRetrieverChain](https://python.langchain.com/docs/modules/chains/popular/chat_vector_db) with reranking added
