@@ -4,7 +4,8 @@ Pinecone/Devpost Hackathon June 2023
 - Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
 - [Libraries & Execution flow diagrams](#execution-flow)
 - Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation. See GIF for updated version (or, better yet, try out the app)!
- - [Inspiration & references](#inspiration-and-references) 
+  - [Inspiration & references](#inspiration-and-references)
+- [DIY locally](#builders)
 
 ## Demo
 
@@ -159,3 +160,9 @@ The materials provided by pinecone's documentation are extremely high quality.
    * [This Youtube series on Streamlit was also very helpful](https://www.youtube.com/watch?v=lYDiSCDcxmc) 
    * [As was this Youtube video on Metadata filtering](https://www.youtube.com/watch?v=tn_Y19oB5bs)  
 * Chat feature inspired by LangChain's [ConversationalRetrieverChain](https://python.langchain.com/docs/modules/chains/popular/chat_vector_db) with reranking added
+
+--- 
+
+# Builders
+
+See the streamlit-deploy branch
