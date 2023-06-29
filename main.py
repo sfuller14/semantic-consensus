@@ -11,6 +11,7 @@ import psycopg2
 import pinecone
 import openai
 import cohere
+import spacy
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -32,7 +33,7 @@ co = cohere.Client(COHERE_KEY)
 st.set_page_config(page_title='Recsys', layout='wide', page_icon="computer")#initial_sidebar_state='expanded', 
 # endregion streamlit-config
 
-# region load_dbs
+# region load_dbs_and_highlighterfunc
 @st.cache_resource
 def load_sql():
     conn = psycopg2.connect(
@@ -51,9 +52,25 @@ def load_pinecone():
     pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
     return pinecone.Index("ecommerce")
 
+@st.cache_resource
+def load_spacy_model(model_name):
+    return spacy.load(model_name)
+
 client = load_sql()
 pinecone_index = load_pinecone()
-# endregion load_dbs
+nlp = load_spacy_model('en_core_web_sm')
+
+# @st.cache_data
+def preprocess_text_spacy(text):
+    doc = nlp(text)
+    return [token.lemma_ for token in doc if not token.is_stop]
+
+# @st.cache_data
+def highlight_matches_streamlit(input_text, lemmatized_query):
+    words = input_text.split()
+    highlighted_words = [f'**:violet[{word}]**' if word.rstrip('.,;:!?').lower() in lemmatized_query else word for word in words]
+    return ' '.join(highlighted_words)
+# endregion load_dbs_and_highlighterfunc
 
 # region functions
 # CHAT FUNCTION
@@ -76,6 +93,7 @@ def stream_response(user_input, asin):
 
     documents = [r['metadata']['review_text'] for r in results['matches']]
 
+    # top_n in the following rerank call can be arbitrarily high (will get truncated before passing to LLM if context window is exceeded), but empirically 12 works well
     rerank_hits = co.rerank(query=user_input, documents=documents, top_n=12, model="rerank-multilingual-v2.0")
     pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
     reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
@@ -89,19 +107,19 @@ def stream_response(user_input, asin):
 
     # Don't exceed 8000 tokens
     encoding = tiktoken.encoding_for_model('gpt-4')
-    context = encoding.decode(encoding.encode(context)[:7750]) if len(encoding.encode(context)) >= 7750 else context
+    context = encoding.decode(encoding.encode(context)[:7700]) if len(encoding.encode(context)) >= 7700 else context
         
-    context += "\n**RESPONSE:**\n"
-    system_prompt = f"""You are a helpful assistant that reads Amazon reviews of a computer hardware product in order to answer questions for Amazon users. 
-    Determine if the user's question is specific to the selected product or a general question about computers. 
-    If the question is unrelated to computers or the product, respond with "I don't know".  
-    If the question is about computers generally, ignore the reviews and provide a general response. 
-    If product-specific, perform the following steps:  
+    context += "\n**RESPONSE TO DISPLAY TO THE USER:**"
+    system_prompt = f"""You are a helpful assistant that reads Amazon reviews of a desktop/laptop product and answers a question for an Amazon user. 
+    If the question is about computers generally, ignore the reviews and provide a general response. If the question is product-specific, perform the following steps:  
     
-    1) Read the following product description and reviews and determine which portions of the reviews are relevant to the user's question
-    2) In a markdown bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the FULL URL of the review): * "quote from review" (**FULL url*** of review)
-    3) Finally, in a short paragraph, respond to the user's question based on the reviews. You may refer to the product description as well if appropriate, but focus on the reviews.
-
+    1) Read the following context then in a markdown bulleted list, provide 0-5 direct quotes from the reviews that are relevant to the user's question (along with the FULL URL of the review). All link texts should say "See Review on Amazon". Follow this format exactly: * "Relevant portion from a review" [See Review on Amazon](https://www.amazon.com/url-associated-with-review)
+    2) In a short paragraph, respond to the user's question based on the reviews. You may refer to the product description as well if it contains information that answers the user's question, but focus primarily on conveying relevant information from the reviews whenever possible. 
+    
+    Try to generalize the information in the reviews - do not rehash the provided review snippets verbatim (as the user will have read them); just use them to provide a concise, measured answer to the user's question. 
+    Strive to provide a response, but do not make up information. If the question is unrelated to computers or the product, respond with the exact phrase "Sorry, I don't know".
+    *CRITICALLY, the response you provide is being displayed directly to the user who asked the question -- RESPOND DIRECTLY TO THE USER.*
+    
     {context}
     """
     messages = [
@@ -115,7 +133,7 @@ def stream_response(user_input, asin):
     for resp in openai.ChatCompletion.create(model="gpt-4", messages=messages, temperature=0, stream=True ):
         response.append(resp['choices'][0]['delta'].get('content', ''))
         result = "".join(response).strip()
-        res_box.markdown(f'*{result}*') 
+        res_box.markdown(f'{result}') 
 
 # PRODUCT PAGE
 def view(product_id, df):
@@ -136,9 +154,9 @@ def view(product_id, df):
             product_series = df.loc[df.id == product_id, :].squeeze()
             image_column.image(f'./thumbnails/{product_series["asin"]}.jpg', use_column_width='always')
             
-            # print(product_id, product_series["asin"])
+            title_text = highlight_matches_streamlit(product_series["title_text"], st.session_state.lemmatized_query) if 'lemmatized_query' in st.session_state else product_series["title_text"]
             info_column.write(f'''
-                              * **PRODUCT**:    {product_series["title_text"]}
+                              * **PRODUCT**:    {title_text}
                               * **PRICE**:    ${product_series["price"]}
                               * **RATING**:    {product_series["rating"]}
                               * **CATEGORY**:    {product_series["category"]}
@@ -155,25 +173,26 @@ def view(product_id, df):
                               * **url**:    {product_series["url"]}
                               ''')
             
-            expdr = info_column.expander('Product Description from Seller')
-            expdr.write(f'**PRODUCT DESCRIPTION**: {product_series["seller_text"]}')
-            
             if 'query_embedding' in st.session_state:
+                if 'lemmatized_query' not in st.session_state:
+                    st.session_state.lemmatized_query = preprocess_text_spacy(st.session_state.query_for_sorting)
+                
                 asin = product_series['asin']
                 
                 results = pinecone_index.query(st.session_state.query_embedding, 
                                                 filter={
                                                     "asin": {"$eq": asin},
-                                                    "n_tokens": {"$gt": 12}
+                                                    "n_tokens": {"$gt": 7},
+                                                    "rating": {"$gt": 3}
                                                 },
-                                                top_k=1,
+                                                top_k=35,
                                                 namespace='reviews', 
                                                 include_metadata=True)
                 
                 documents = [r['metadata']['review_text'] for r in results['matches']]
 
-                rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=1, model="rerank-multilingual-v2.0")
-                pinecone_ranks = [rerank_hits.results[i].index for i in range(0, len(rerank_hits.results))]
+                rerank_hits = co.rerank(query=st.session_state.query_for_sorting, documents=documents, top_n=5, model="rerank-multilingual-v2.0")
+                pinecone_ranks = [rerank_hits.results[i].index for i in range(len(rerank_hits.results))]
                 reranked_results = [results['matches'][idx] for idx in pinecone_ranks]
 
                 date = reranked_results[0]['metadata']['date']
@@ -182,12 +201,35 @@ def view(product_id, df):
                 review_text = reranked_results[0]['metadata']['review_text']
                 url = reranked_results[0]['metadata']['url']
 
-                info_column.write(f'**Most Similar Review to User Query**: {review_text}')
-                info_column.write(f'Review url: {url}')
-                info_column.write(f'Date: {date}')
-                info_column.write(f'Rating: {rating} / 5')
-                info_column.write(f'Num People who Found this Review Helpful: {numPeopleFoundHelpful}')
+                image_column.write('---')
+                image_column.write(f'''**#1 Relevant Review to User Query** ({round(rerank_hits.results[0].relevance_score*100,1)} Relevance Score):\n''') 
+                image_column.write(f'''{highlight_matches_streamlit(review_text, st.session_state.lemmatized_query)}''')
+                image_column.write(f'''[See Review on Amazon]({url})''')
+                image_column.write(f'''* Date:   {date}''')
+                image_column.write(f'''* Rating:   {int(rating)} / 5''')
+                image_column.write(f'''* Num People who Found this Review Helpful:   {int(numPeopleFoundHelpful)}''')
+                image_column.write('---')
                 
+                review_expdr = image_column.expander('Other relevant reviews', expanded=False)                
+                for i in range(1, len(rerank_hits.results)):
+                    date = reranked_results[i]['metadata']['date']
+                    numPeopleFoundHelpful = reranked_results[i]['metadata']['numPeopleFoundHelpful']
+                    rating = reranked_results[i]['metadata']['rating']
+                    review_text = reranked_results[i]['metadata']['review_text']
+                    url = reranked_results[i]['metadata']['url']
+
+                    review_expdr.write(f'''* **#{i+1} Relevant Review to User Query**:   {highlight_matches_streamlit(review_text, st.session_state.lemmatized_query)}''')
+                    review_expdr.write(f'''* Relevance score:   {round(rerank_hits.results[i].relevance_score*100,2)} ''')
+                    review_expdr.write(f'''* Review url:   {url}''')
+                    review_expdr.write(f'''* Date:   {date}''')
+                    review_expdr.write(f'''* Rating:   {int(rating)} / 5''')
+                    review_expdr.write(f'''* Num People who Found this Review Helpful:   {int(numPeopleFoundHelpful)}''')
+                    review_expdr.write('---')
+                    
+            
+            seller_expdr = info_column.expander('Product Description from Seller')
+            seller_expdr.write(f'**PRODUCT DESCRIPTION**: {highlight_matches_streamlit(product_series["seller_text"], st.session_state.lemmatized_query) if "lemmatized_query" in st.session_state else product_series["seller_text"]}')
+                            
         with tab2:
 
             st.title("Reviews Chat")
@@ -244,7 +286,8 @@ def view_products(df, products_per_row=4):
                     container = column.container()
                     
                     if 'query_for_sorting' in st.session_state and st.session_state.query_for_sorting != '' and 'asin_topreview_dict' in st.session_state:
-                        tooltip = f'**Most relevant review:** ({round(product[1]["cohere_score"]*100,2)} similarity) \n\n{st.session_state.asin_topreview_dict[product[1]["asin"]]}'
+                        tooltip = highlight_matches_streamlit(f'**Most relevant review:** ({round(product[1]["cohere_score"]*100,2)} relevance score) \n\n{st.session_state.asin_topreview_dict[product[1]["asin"]]}',
+                                                              st.session_state.lemmatized_query)
                     else:
                         tooltip = 'Enter a query to see relevant reviews here'
                     title_suffix = '...' if len(product[1]["true_title"]) > 25 else ''
@@ -289,9 +332,12 @@ def get_embedding(text, model="text-embedding-ada-002", max_tokens=8000):
 def update_query_and_sort_results():
     if 'query_for_sorting' in st.session_state and st.session_state.query_for_sorting != '':
         st.session_state.query_embedding = get_embedding(st.session_state.query_for_sorting, model='text-embedding-ada-002')
+        st.session_state.lemmatized_query = preprocess_text_spacy(st.session_state.query_for_sorting)
     else:
         if 'query_embedding' in st.session_state:
             del st.session_state.query_embedding
+        if 'lemmatized_query' in st.session_state:
+            del st.session_state.lemmatized_query
     
     if 'query_embedding' in st.session_state and st.session_state.query_embedding \
         and 'filtered_asins' in st.session_state and st.session_state.filtered_asins:# \
@@ -396,9 +442,9 @@ def recsys():
                 conditions.append(f'rating >= {st.session_state.rating_slider[0]}')
                 conditions.append(f'rating <= {st.session_state.rating_slider[1]}')
 
-                query = f'SELECT * FROM products WHERE {" AND ".join(conditions)}'
+                query = f'SELECT * FROM products WHERE num_reviews > 35 AND {" AND ".join(conditions)}'
             else:
-                query = f'SELECT * FROM products'
+                query = f'SELECT * FROM products WHERE num_reviews > 35'
             
             client.execute(query)
             result_set = client.fetchall()
@@ -421,15 +467,15 @@ def recsys():
         
 # Prep tabular filter data
 def get_all_tabular_categories(_client):
-    _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 20''')
+    _client.execute('''SELECT DISTINCT category FROM products WHERE num_reviews > 30''')
     distinct_categories = _client.fetchall()
-    _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 20 ORDER BY brand''')
+    _client.execute('''SELECT DISTINCT brand FROM products WHERE num_reviews > 30 ORDER BY brand''')
     distinct_brands = _client.fetchall()
-    _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 20''')
+    _client.execute('''SELECT DISTINCT operating_system FROM products WHERE num_reviews > 30''')
     distinct_operating_systems = _client.fetchall()
-    _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 20''')
+    _client.execute('''SELECT min(price), max(price) FROM products WHERE num_reviews > 30''')
     min_max_price_tuple = _client.fetchone()
-    _client.execute('''SELECT min(date_first_available_dt), max(date_first_available_dt) FROM products WHERE num_reviews > 20''')
+    _client.execute('''SELECT min(date_first_available_dt), max(date_first_available_dt) FROM products WHERE num_reviews > 30''')
     min_max_date_tuple = _client.fetchone()
     
     # Flatten the list of tuples

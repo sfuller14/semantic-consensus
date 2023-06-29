@@ -3,4 +3,5 @@ deployscript.sh
 docker/deployscript.sh
 docker/deployscript_local.sh
 scratch.ipynb
+scratch2.ipynb
 .dockerignore

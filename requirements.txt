@@ -8,3 +8,4 @@ pandas
 numpy
 gunicorn
 python-dotenv
+spacy
