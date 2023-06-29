@@ -3,17 +3,20 @@
 Pinecone/Devpost Hackathon June 2023  
 - Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
 - [Libraries & Execution flow diagrams](#execution-flow)
-- Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation  
-  * Youtube video & GIF were filmed before final optimized search process was implemented. The video gives a decent overview of the first draft, but see below screenshots or, better yet, try out the app!
+- Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation. See GIF for updated version (or, better yet, try out the app)!
  - [Inspiration & references](#inspiration-and-references) 
 
-## Overview
+## Demo
 
-Commercial Consensus is an intelligent search platform designed to revolutionize e-commerce recommendation systems. By combining the power of structured tabular data with unstructured customer reviews, we provide an innovative solution to the longstanding problem of data quality in e-commerce platforms.
+![](https://github.com/sfuller14/public_ref/blob/master/nice.gif)
 
 ## The Problem
 
 Traditional e-commerce recommendation systems, such as collaborative filtering and graph-based methods, rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
+
+## Overview
+
+Commercial Consensus is an intelligent search platform designed to revolutionize e-commerce recommendation systems. By combining the power of structured tabular data with unstructured customer reviews, we provide an innovative solution to the longstanding problem of data quality in e-commerce platforms.
 
 ---
 
