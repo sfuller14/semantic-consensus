@@ -53,12 +53,12 @@ def load_pinecone():
     return pinecone.Index("ecommerce")
 
 @st.cache_resource
-def load_spacy_model(model_name):
-    return spacy.load(model_name)
+def load_spacy_model():
+    return spacy.load('en_core_web_sm')
 
 client = load_sql()
 pinecone_index = load_pinecone()
-nlp = load_spacy_model('en_core_web_sm')
+nlp = load_spacy_model()
 
 # @st.cache_data
 def preprocess_text_spacy(text):
@@ -233,11 +233,17 @@ def view(product_id, df):
         with tab2:
 
             st.title("Reviews Chat")
-            user_input = st.text_input("Ask a question:")
-            if user_input:
-                asin = df.loc[df.id == product_id, 'asin'].item()
-                
-                stream_response(user_input, asin)
+
+            # Create a form
+            with st.form(key='chat_form'):
+                user_input = st.text_input("Ask a question:")
+                submit_button = st.form_submit_button("Submit")
+
+            # Process the form when the submit button is clicked
+            if submit_button:
+                if user_input:
+                    asin = df.loc[df.id == product_id, 'asin'].item()
+                    stream_response(user_input, asin)
 
 # GOTO PRODUCT PAGE
 def set_viewed_product(product):
