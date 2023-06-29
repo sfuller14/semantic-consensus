@@ -8,7 +8,7 @@ Pinecone/Devpost Hackathon June 2023
 
 ## Demo
 
-![](https://github.com/sfuller14/public_ref/blob/master/nice.gif)
+![](https://github.com/sfuller14/public_ref/blob/master/recsys.gif)
 
 ## The Problem
 
