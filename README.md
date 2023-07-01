@@ -2,24 +2,16 @@
 
 Pinecone/Devpost Hackathon June 2023  
 - Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
-- [Libraries & Execution flow diagrams](#execution-flow)
-- Narrated Demo: https://youtu.be/5KyWZLdwDzo **NOTE** - video is of first draft implementation. See GIF for updated version (or, better yet, try out the app)!
-- [Inspiration & references](#inspiration-and-references)
-- [DIY locally](#builders)
+- [Execution flow diagrams](#execution-flow)
+- [Hackathon submission](https://devpost.com/software/commercial-consensus-l8naxj)
 
 ## Demo
 
-![](https://github.com/sfuller14/public_ref/blob/master/recsys.gif)
+![demogif](https://github.com/sfuller14/public_ref/blob/master/recsys.gif)
 
 ## The Problem
 
-Traditional e-commerce recommendation systems, such as collaborative filtering and graph-based methods, rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
-
-## Overview
-
-Commercial Consensus is an intelligent search platform designed to revolutionize e-commerce recommendation systems. By combining the power of structured tabular data with unstructured customer reviews, we provide an innovative solution to the longstanding problem of data quality in e-commerce platforms.
-
----
+Traditional implementations of collaborative filtering, content-based filtering, and graph-based recommendation methods rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
 
 <p align="center" style="font-size:10px;">Example of inconsistent data availability for two products in the same category:</p>
 
@@ -42,17 +34,13 @@ This data quality issue hampers the effectiveness of recommendation systems, the
 
 ## The Solution
 
-Commercial Consensus tackles this problem head-on by harnessing the latent information within customer reviews. Utilizing state-of-the-art technologies, such as Pinecone's vector search engine over indexed product review embeddings and Cohere's reranking endpoint, our platform performs a hybrid (tabular + semantic) search. This innovative approach provides a new dimension of search, enabling users to tap into the ___Commercial Consensus___ – an aggregated, reliable body of knowledge derived from customer reviews - in a targeted and personalized way.
+Commercial Consensus approaches this problem by harnessing the latent information within customer reviews. By performing vector similarity search on an embedding space reduced by traditional tabular filters, the system presents a basic approach to mitigating the longstanding problem of data quality in e-commerce platforms. Utilizing Pinecone's vector search engine over indexed OpenAI embeddings in coordination with Cohere's reranking endpoint, the platform performs a hybrid (tabular + semantic) search and a conversational interface to tap into the previously inaccessible body of knowledge available in customer reviews. 
 
 ## Features
 
 ### [Enhanced](#technical-appendix) Search
 
-Commercial Consensus offers an ultra-personalized and efficient search experience, powered by `pinecone.query()` and `cohere.rerank()`. Our platform goes beyond lexical search/simple keyword matching, delivering results based on [enhanced](#technical-appendix) semantic similarity to user queries. This approach provides a more intuitive and user-centric search experience, improving product discovery and enhancing user satisfaction.  
-
----
-
-<p align="center" style="font-size:10px;">Ultra-relevant recommendations using pinecone.query() (with metadata & namespace filters) + cohere.rerank()</p>
+<p align="center" style="font-size:10px;">Personalized search results using metadata & namespace filters + co.rerank()</p>
 
 ![Search Example](https://github.com/sfuller14/semantic-consensus/assets/54780092/27f4c830-c869-4f6b-a859-77fb87b68f6e)
 <p align="center" style="font-size:10px;">Hover over the '?' icon to see the most similar review to your query.</p>
@@ -66,10 +54,6 @@ Commercial Consensus offers an ultra-personalized and efficient search experienc
 ---
 ### Intelligent Chat Interface
 
-Our platform features a chat interface that leverages the power of quality-controlled retrieval-augmented generation (RAG). By utilizing a custom `pinecone.query()` + `cohere.rerank()` + `openai.ChatCompletions()` chain, users receive detailed responses based on both product specifications and relevant reviews. Customers find the right product easier & return fewer items -- a win for all parties. This feature not only provides valuable insights to potential buyers but also serves as a tool for sellers performing market research.
-
----
-
 <p align="center" style="font-size:10px;">Access aspect-based sentiments from reviews</p>
 
 ![Chat Example](https://github.com/sfuller14/semantic-consensus/assets/54780092/ddf82542-d5cf-4d92-ab88-25e50a8831ff)
@@ -77,22 +61,10 @@ Our platform features a chat interface that leverages the power of quality-contr
 
 ---
 
-<p align="center" style="font-size:10px;">Targeted retrieval + controlled generation using both aggregated reviews and product specs.</p>
+<p align="center" style="font-size:10px;">Generation using both aggregated reviews and product specs.</p>
 
 ![Screenshot 2023-06-25 at 8 53 58 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/bf75e849-8d9f-4981-bfcf-5c17616869bf)
 
----
-## Libraries
-
-Commercial Consensus is built using a suite of [cutting-edge technologies](#execution-flow). Pinecone enables efficient vector similarity search over large volumes of data organized by namespace (product embeddings, word embeddings, and combined) and stored with metadata. Cohere's reranking capabilities are utilized heavily to enhance the relevance of the inital query results and ensure high quality documents are retrieved for GPT-4 in the Chat portion. A customized prompt (as well as providing product specs along with product reviews) limits hallucination and maximizes response relevancy by OpenAI's GPT-4 model.  Streamlit enabled a backend dev to throw a passable front-end on the system.
-
-## Commercial Consensus
-
-The name "Commercial Consensus" embodies the core value proposition of our platform. By aggregating and semantically searching customer reviews, we are able to capture the collective wisdom of the consumer base - a consensus on the quality and features of products. This consensus, driven by real user experiences, provides a reliable and unbiased source of information that complements, and often outperforms, traditional tabular data.
-
-## Try It Out
-
-[Experience the future of e-commerce with Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com). Hosted on AWS.
 
 ## Technical Appendix
 
@@ -101,14 +73,12 @@ Re-ranking is an important and widely-used step in modern search engines. It is 
 
 - [Passage Re-ranking with BERT](https://arxiv.org/pdf/1901.04085.pdf)
 
-Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank/) along with some research on the associated search improvement it provides:
+Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank/): 
 <p float="center">
   <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/04641b8a-5745-4fe5-bd04-d18a8db7f353" width="350" />
 </p>
 
-We found the endpoint to be highly performant, both in terms of quality and response time. It handles up to 1,000 documents (passed as raw text, not embeddings) in a single call, and returns the re-ranked results almost instantly.   
-
-__Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application__: 
+Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application: 
 
 ### Execution Flow
 
@@ -116,23 +86,19 @@ __Each call made to pinecone.query() in ```main.py``` is followed by co.rerank()
 
 ![Screenshot 2023-06-28 at 9 36 34 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/c118d859-6adc-4bbe-8ff8-bc0745ba356b)
 
-__EVEN THOUGH THIS IS POTENTIALLY CONFUSING TO THE USER,__ ```rerank_score * 100``` is displayed as 'Similarity' in the tooltip on hover ([to try to get a sense of how to set threshold](https://docs.cohere.com/docs/reranking-best-practices#interpreting-results) since this is just demo app)
-
-2) When a user clicks View on a product
+2) When a user clicks 'View' on a product
 
 ![Screenshot 2023-06-28 at 9 37 57 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/1f7f62a4-c590-48ab-a707-666200672a06)
      
-3) When a user enters a question in the Chat tab
+3) When a user enters a question in the 'Chat' tab
 
 ![Screenshot 2023-06-28 at 9 39 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/70f010d8-26f8-462c-b937-8857d3b3409f)
-
-The user question + product's title (__which for Amazon contains a hodgepodge of specs__) + top 12 reviews + the system prompt are passed to ```openai.ChatCompletion.create()``` (with tiktoken truncating the reviews if cl100k_base max context window is exceeded): 
 
 #### Product Title Example
 
 ![Screenshot 2023-06-28 at 8 16 23 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/a76b56a2-097e-4402-bfa7-7639baef65dd)
 
-This is likely done for facilitating lexical search in the presence of variably-populated data fields. We're able to exploit this approach within the LLM prompt. See [the awesome examples from the pinecone documentation](#inspiration-and-references) for more on this topic in the context of querying. Combining sparse-dense search with our tabular-dense approach (and adding in reranking) could be an interesting area for further investigation. 
+This is likely done for facilitating lexical search in the presence of variably-populated data fields. We're able to exploit this approach within the LLM prompt.
 
 ---
 
@@ -152,17 +118,5 @@ Note that these comparisons are not reflective of pinecone's querying performanc
 
 # Inspiration and References
 
-The materials provided by pinecone's documentation are extremely high quality. 
-
-* [This post by James Briggs](https://docs.pinecone.io/docs/ecommerce-search#hybrid-search-for-e-commerce-with-pinecone) on hybrid (sparse textual + dense image) search was the main inspiration for this project & the proposed system is largely a riff/expansion on that case study (with the main additions being tabular filtering, reranking, and LLM incorporation) 
-   * [Accompanying Youtube video](https://www.youtube.com/watch?v=AELtGhiAqio) 
-   * [Documentation on sparse-dense search in pinecone](https://docs.pinecone.io/docs/hybrid-search) 
-   * [This Youtube series on Streamlit was also very helpful](https://www.youtube.com/watch?v=lYDiSCDcxmc) 
-   * [As was this Youtube video on Metadata filtering](https://www.youtube.com/watch?v=tn_Y19oB5bs)  
+* The proposed system is an expansion on [this post by James Briggs](https://docs.pinecone.io/docs/ecommerce-search#hybrid-search-for-e-commerce-with-pinecone) on hybrid (sparse textual + dense image) search. The main additions are tabular filtering, reranking, and LLM incorporation. 
 * Chat feature inspired by LangChain's [ConversationalRetrieverChain](https://python.langchain.com/docs/modules/chains/popular/chat_vector_db) with reranking added
-
---- 
-
-# Builders
-
-See the streamlit-deploy branch
