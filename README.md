@@ -9,6 +9,8 @@ Pinecone/Devpost Hackathon June 2023
 
 ![demogif](https://github.com/sfuller14/public_ref/blob/master/recsys.gif)
 
+- Narrated Demo: https://www.youtube.com/watch?v=5KyWZLdwDzo
+
 ## The Problem
 
 Traditional implementations of collaborative filtering, content-based filtering, and graph-based recommendation methods rely heavily on structured, tabular data. However, this approach is fraught with limitations due to the widespread missing and inconsistent data inherent to third-party seller platforms:  
