@@ -3,7 +3,6 @@
 Pinecone/Devpost Hackathon June 2023  
 - Try it out: [Commercial Consensus](http://ecommerce-recsys.us-east-2.elasticbeanstalk.com)  (hosted on AWS)
 - [Execution flow diagrams](#execution-flow)
-- Narrated Demo: https://www.youtube.com/watch?v=5KyWZLdwDzo
 
 ## Demo
 
