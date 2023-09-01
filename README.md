@@ -65,9 +65,35 @@ Commercial Consensus approaches this problem by harnessing the latent informatio
 ![Screenshot 2023-06-25 at 8 53 58 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/bf75e849-8d9f-4981-bfcf-5c17616869bf)
 
 
-## Technical Appendix
+## Appendix
 
-Re-ranking is an important and widely-used step in modern search engines. It is generally run on the results of a lighter-weight lexical search (like TF-IDF or BM25) to refine the results. Re-ranking using BERT variants has shown SOTA search status in recent years:
+### Execution Flow
+
+1) User enters a query and presses 'Search':
+
+![Screenshot 2023-06-28 at 9 36 34 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/c118d859-6adc-4bbe-8ff8-bc0745ba356b)
+
+2) User clicks 'View' on a product:
+
+![Screenshot 2023-06-28 at 9 37 57 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/1f7f62a4-c590-48ab-a707-666200672a06)
+     
+3) User enters a question in the 'Chat' tab:
+
+![Screenshot 2023-06-28 at 9 39 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/70f010d8-26f8-462c-b937-8857d3b3409f)
+
+
+#### Product Title Example
+
+![Screenshot 2023-06-28 at 8 16 23 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/a76b56a2-097e-4402-bfa7-7639baef65dd)
+
+
+This is a product of e-commerce sellers optimizing their product titles to facilitate lexical search in the presence of variably-populated data fields. We're able to exploit this practice by including this title in the LLM prompt.
+
+### Re-ranking
+
+As demonstrated in the diagrams above, the output of each cosine similarity search on the stored ```text-embedding-ada-002```-embedded dataset (i.e., each call to pinecone.query()) is followed by a re-rank. 
+
+Re-ranking is a widely-used step in modern search engines. It is generally run on the results of a lighter-weight lexical search (like TF-IDF or BM25) to refine the results. Re-ranking using BERT variants has shown SOTA search status in recent years:
 - [ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT](https://arxiv.org/pdf/2004.12832.pdf)
 
 - [Passage Re-ranking with BERT](https://arxiv.org/pdf/1901.04085.pdf)
@@ -76,28 +102,6 @@ Cohere recently introduced their [rerank endpoint](https://txt.cohere.com/rerank
 <p float="center">
   <img src="https://github.com/sfuller14/semantic-consensus/assets/54780092/04641b8a-5745-4fe5-bd04-d18a8db7f353" width="350" />
 </p>
-
-Each call made to pinecone.query() in ```main.py``` is followed by co.rerank(). This occurs at three points in our application: 
-
-### Execution Flow
-
-1) When the user enters a query and presses 'Search'
-
-![Screenshot 2023-06-28 at 9 36 34 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/c118d859-6adc-4bbe-8ff8-bc0745ba356b)
-
-2) When a user clicks 'View' on a product
-
-![Screenshot 2023-06-28 at 9 37 57 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/1f7f62a4-c590-48ab-a707-666200672a06)
-     
-3) When a user enters a question in the 'Chat' tab
-
-![Screenshot 2023-06-28 at 9 39 22 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/70f010d8-26f8-462c-b937-8857d3b3409f)
-
-#### Product Title Example
-
-![Screenshot 2023-06-28 at 8 16 23 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/a76b56a2-097e-4402-bfa7-7639baef65dd)
-
-This is likely done for facilitating lexical search in the presence of variably-populated data fields. We're able to exploit this approach within the LLM prompt.
 
 ---
 
@@ -111,11 +115,5 @@ In the above, notice that both reviews mentioning BSOD in the re-ranked results 
 
 ![Screenshot 2023-06-26 at 11 08 17 PM](https://github.com/sfuller14/semantic-consensus/assets/54780092/4e209d2a-1749-4312-bd98-f00e757522c0)
 
-Note that these comparisons are not reflective of pinecone's querying performance, but of cosine similarity search on 'text-embedding-ada-002'  vs. the re-ranked equivalent.
-
 ---
 
-# Inspiration and References
-
-* The proposed system is an expansion on [this post by James Briggs](https://docs.pinecone.io/docs/ecommerce-search#hybrid-search-for-e-commerce-with-pinecone) on hybrid (sparse textual + dense image) search. The main additions are tabular filtering, reranking, and LLM incorporation. 
-* Chat feature inspired by LangChain's [ConversationalRetrieverChain](https://python.langchain.com/docs/modules/chains/popular/chat_vector_db) with reranking added
