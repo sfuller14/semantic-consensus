@@ -12,10 +12,14 @@ import pinecone
 import openai
 import cohere
 co = cohere.Client(st.secrets["COHERE_KEY"])
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# region load_dbs
+# region load_resources
 @st.cache_resource
 def load_sql():
     conn = sqlite3.connect('ecommerce.sqlite', check_same_thread=False)
@@ -28,7 +32,14 @@ def load_sql():
 def load_pinecone():
     pinecone.init(api_key=st.secrets['PINECONE_API_KEY'], environment=st.secrets['PINECONE_ENVIRONMENT'])
     return pinecone.Index("ecommerce")
-# endregion load_dbs
+
+@st.cache_data
+def get_stopwords(lang):
+    nltk.download('stopwords')
+    nltk.download('punkt')
+    return set(stopwords.words(lang))
+stop_words = get_stopwords('english')
+# endregion load_resources
 
 # CHAT FUNCTION
 def stream_response(user_input, asin):
@@ -80,12 +91,26 @@ def stream_response(user_input, asin):
     ]
     
     # --> Response
+    user_query_tokens = word_tokenize(user_input)
+    filtered_user_query = [word for word in user_query_tokens if word.lower() not in stop_words]
     res_box = st.empty()
     response = []
     for resp in openai.ChatCompletion.create(model="gpt-4", messages=messages, temperature=0, stream=True ):
         response.append(resp['choices'][0]['delta'].get('content', ''))
         result = "".join(response).strip()
-        res_box.markdown(f'*{result}*') 
+
+        result_tokens = word_tokenize(result)
+        highlighted_result = []
+        for token in result_tokens:
+            if token.lower() in [word.lower() for word in filtered_user_query]:
+                highlighted_result.append(f'<span style="color: fuchsia;"><u>**{token}**</u></span>')
+            else:
+                highlighted_result.append(token)
+
+        highlighted_result_str = " ".join(highlighted_result)
+        highlighted_result_str = re.sub(' +', ' ', highlighted_result_str)
+
+        res_box.markdown(highlighted_result_str, unsafe_allow_html=True)
 
 # PRODUCT PAGE
 def view(product_id, df):
@@ -120,7 +145,7 @@ def view(product_id, df):
                                                     "asin": {"$eq": asin},
                                                     "n_tokens": {"$gt": 7}
                                                 },
-                                                top_k=1,
+                                                top_k=50,
                                                 namespace='reviews', 
                                                 include_metadata=True)
                 
@@ -136,7 +161,21 @@ def view(product_id, df):
                 review_text = reranked_results[0]['metadata']['review_text']
                 url = reranked_results[0]['metadata']['url']
 
-                info_column.write(f'**Most Similar Review to User Query**: {review_text}')
+                user_query_tokens = word_tokenize(st.session_state.query_for_sorting)
+                filtered_user_query = [word for word in user_query_tokens if word.lower() not in stop_words]
+                
+                review_tokens = word_tokenize(review_text)
+                highlighted_review = []
+                for token in review_tokens:
+                    if token.lower() in [word.lower() for word in filtered_user_query]:
+                        highlighted_review.append(f'<span style="color: fuchsia;"><u>**{token}**</u></span>')
+                    else:
+                        highlighted_review.append(token)
+
+                highlighted_review_str = " ".join(highlighted_review)
+                highlighted_review_str = re.sub(' +', ' ', highlighted_review_str)
+
+                info_column.write(f'**Most Similar Review to User Query**: {highlighted_review_str}', unsafe_allow_html=True)
                 info_column.write(f'Review url: {url}')
                 info_column.write(f'Date: {date}')
                 info_column.write(f'Rating: {rating} / 5')
@@ -191,7 +230,7 @@ def view_products(df, products_per_row=7):
                     container = column.container()
                     button_key = f"view_{product[1]['id']}"
                     if container.button('View', key=button_key):
-                        set_viewed_product(product=product[1])#, df=df)
+                        set_viewed_product(product=product[1])
                     container.image(f'./assets_resized/{product[1]["asin"]}.jpg', use_column_width='always')
             st.session_state.popped=True
 
