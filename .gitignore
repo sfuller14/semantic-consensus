@@ -12,3 +12,7 @@ data_pipeline/file_mgr.ipynb
 .vscode
 scratch.ipynb
 /.streamlit/secrets.toml
+2025_pinecone_extraction/pinecone_export/export_combined.jsonl
+2025_pinecone_extraction/pinecone_export/export_products.jsonl
+2025_pinecone_extraction/pinecone_export/export_reviews.jsonl
+2025_pinecone_extraction/pinecone_export/export_summary.yaml
